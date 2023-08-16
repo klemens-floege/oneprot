@@ -8,7 +8,7 @@ defaults:
   - override /model: oneprot.yaml
   - override /callbacks: default.yaml
   - override /logger: tensorboard.yaml
-  - override /trainer: ddp.yaml
+  - override /trainer: cpu.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
@@ -18,15 +18,13 @@ tags: ["oneprot", "facebook/esm2_t12_35M_UR50D"]
 seed: 12345
 
 model:
-  data_modalities: ['text','structure','go']
- 
+  data_modalities: ['text','structure','go','msa']
+
 trainer:
   min_epochs: 1
-  max_epochs: 10
-  accumulate_grad_batches: 32
+  max_epochs: 1
   gradient_clip_val: 0.5
 
 data:
-  data_modalities: ['text','structure','go','msa']
-  batch_size: 2
-  num_workers: 8
+  batch_size: 3
+  num_workers: 16
