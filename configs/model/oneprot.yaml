@@ -1,0 +1,30 @@
+_target_: src.models.oneprot_module.ONEPROTLitModule
+out_embed_dim: 1024
+data_modalities: ['text','structure','go','msa']
+sequence_model: "facebook/esm2_t12_35M_UR50D"
+sequence_hidden_size: 480
+msa_hidden_size: 768
+text_hidden_size: 768
+structure_hidden_size: 768
+go_hidden_size: 768
+freeze_msa: True
+freeze_sequence: True
+freeze_text: True
+#loss:
+#  _target_: src.models.losses.ContrastiveLoss
+#  params:
+#    margin: 1.0
+#    temperature: 0.1
+
+#optimizer:
+#  _target_: torch.optim.Adam
+#  params:
+#    lr: 0.001
+#    weight_decay: 0.0
+
+#scheduler:
+#  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+#  params:
+#    mode: min
+#    factor: 0.1
+#    patience: 10
