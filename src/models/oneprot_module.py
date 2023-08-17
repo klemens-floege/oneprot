@@ -192,7 +192,7 @@ class ONEPROTLitModule(LightningModule):
         """
         
         modality_outputs = {}
-        for modality in self.data_modalities:
+        for modality in list(batch.keys()):
             
             sequence_features, modality_features = batch[modality]
             sequence_output = self.oneprot_module['sequence_model'](**sequence_features)
@@ -287,7 +287,7 @@ class ONEPROTLitModule(LightningModule):
         
         modality_outputs = self.forward(batch)
         loss = 0
-        for modality in self.data_modalities:
+        for modality in list(batch.keys()):
             
             loss += self.loss_fn(modality_outputs[f"{modality}_sequence_feat"], modality_outputs[f"{modality}_modality_feat"])
         return loss
@@ -314,17 +314,17 @@ class ONEPROTLitModule(LightningModule):
         "Lightning hook that is called when a training epoch ends."
         pass
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int) -> None:
+
         """Perform a single validation step on a batch of data from the validation set.
 
         :param batch: A batch of data (a tuple) containing the input tensor of images and target
             labels.
         :param batch_idx: The index of the current batch.
         """
-   
-
-        total_loss = self.model_step(batch)
-       
+        batch_data = {}
+        batch_data[self.data_modalities[dataloader_idx]]= batch
+        total_loss = self.model_step(batch_data)
         # update and log metrics
         self.val_loss(total_loss)
   
