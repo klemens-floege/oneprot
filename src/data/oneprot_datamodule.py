@@ -160,7 +160,7 @@ class ONEPROTDataModule(LightningDataModule):
                             collate_fn=structure_collate_fn,
                             shuffle=False,
                         )
-            return CombinedLoader(iterables, 'min_size')
+            return CombinedLoader(iterables, 'sequential')
         else:
 
             if 'structure' not in self.data_modalities:
@@ -205,7 +205,7 @@ class ONEPROTDataModule(LightningDataModule):
                             collate_fn=structure_collate_fn,
                             shuffle=False,
                         )
-            return CombinedLoader(iterables, 'min_size')
+            return CombinedLoader(iterables, 'sequential')
         else:
 
             if modality != 'structure' :
