@@ -2,7 +2,8 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
-from pytorch_lightning.trainer.supporters import CombinedLoader
+from pytorch_lightning.utilities.combined_loader import CombinedLoader
+
 
 
 from src.data.components.datasets import MSADataset, GODataset, TextDataset, StructureDataset
