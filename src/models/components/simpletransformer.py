@@ -15,6 +15,17 @@ class GOBertEmbeddings(nn.Module):
     def __init__(self, hidden_size=200, hidden_dropout_prob=0.1,layer_norm_eps=1e-12):
         super().__init__()
  
+        go_embs = np.load('/p/project/hai_oneprot/merdivan1/embeddings.npz', allow_pickle=True)['embds'].item()
+        embeddings= torch.zeros((len(list(go_embs.keys()))+2,200))
+        go_emb_token = {}
+        ind = 2
+        for go_emb_key, go_emb_value in go_embs.items():
+    
+            go_emb_token[go_emb_key] = ind
+            embeddings[ind,:] = torch.tensor(go_emb_value)
+            ind = ind +1
+
+        self.word_embeddings = nn.Embedding.from_pretrained(embeddings, padding_idx=1)
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
         self.ln = nn.Linear(hidden_size, 768)
@@ -30,10 +41,8 @@ class GOBertEmbeddings(nn.Module):
         past_key_values_length: int = 0,
     ) -> torch.Tensor:
 
-        input_shape = inputs_embeds.size()[:-1]
-
-        seq_length = input_shape[1]
-
+        input_shape = input_ids.size()
+        inputs_embeds = self.word_embeddings(input_ids)
         embeddings = self.ln(inputs_embeds)
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
@@ -144,11 +153,7 @@ class GOBertModel(BertPreTrainedModel):
         else:
             use_cache = False
 
-        class_tokens = self.cls_token.expand(inputs_embeds.size()[0], -1, -1)  
-        
-        inputs_embeds = torch.cat((class_tokens, inputs_embeds), dim=1)
-            
-            
+  
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
         elif input_ids is not None:

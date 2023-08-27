@@ -22,8 +22,8 @@ class MSADataset(Dataset):
          # can change this to pass more/fewer sequences
  
     def __len__(self):
-        #return len(self.msa_files)
-        return 250000
+        return len(self.msa_files)
+
 
     def __getitem__(self, idx):
         
@@ -59,8 +59,8 @@ class TextDataset(Dataset):
        
  
     def __len__(self):
-        #return len(self.ids)
-        return 250000
+        return len(self.ids)
+   
 
     def __getitem__(self, idx):
         
@@ -87,8 +87,8 @@ class StructureDataset(Dataset):
         self.id_list = list(self.loaded_data.keys())
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
     def __len__(self):
-        #return len(self.id_list)
-        return 250000
+        return len(self.id_list)
+   
 
     def __getitem__(self, idx):
         
@@ -107,15 +107,23 @@ class GODataset(Dataset):
                 
         with open(go_filepath, 'rb') as file:
             self.loaded_dict = pickle.load(file)
-        self.go_embs = np.load('/p/project/hai_oneprot/merdivan1/embeddings.npz', allow_pickle=True)['embds'].item()
+        
+        go_embs = np.load('/p/project/hai_oneprot/merdivan1/embeddings.npz', allow_pickle=True)['embds'].item()
+ 
+        self.go_emb_token = {}
+        ind = 2
+        for go_emb_key, _ in go_embs.items():
+    
+            self.go_emb_token[go_emb_key] = ind
+            ind = ind +1
             
         self.ids = list(self.loaded_dict.keys())
          # can change this to pass more/fewer sequences
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
 
     def __len__(self):
-        #return len(self.ids)
-        return 250000
+        return len(self.ids)
+        
 
     def __getitem__(self, idx):
         
@@ -161,7 +169,6 @@ def structure_collate_fn(data):
     sequence_input['attention_mask'] = torch.cat(sequence_atts, dim=0)
 
     return sequence_input, Batch.from_data_list(structures)
-
 
 
 
