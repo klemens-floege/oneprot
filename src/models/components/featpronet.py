@@ -148,14 +148,14 @@ class FeatProNet(ProNet):
                 x += gaussian_noise
             x = interaction_block(x, feature0, feature1, pos_emb, edge_index, batch)
 
-        #y = scatter(x, batch, dim=0)
+        y = scatter(x, batch, dim=0)
 
-        #for lin in self.lins_out:
-        #    y = self.relu(lin(y))
-        #    y = self.dropout(y)        
-        #y = self.lin_out(y)
-        #return y
-        return x
+        for lin in self.lins_out:
+            y = self.relu(lin(y))
+            y = self.dropout(y)        
+        y = self.lin_out(y)
+        return y
+        #return x
 
     @property
     def num_params(self):

@@ -1,15 +1,12 @@
 _target_: src.models.oneprot_module.ONEPROTLitModule
-out_embed_dim: 1024
+out_embed_dim: 512
 data_modalities: ['text','structure','go','msa']
-sequence_model: "facebook/esm2_t12_35M_UR50D"
-sequence_hidden_size: 480
+sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t12_35M_UR50D"
+sequence_hidden_size: 1240
 msa_hidden_size: 768
 text_hidden_size: 768
 structure_hidden_size: 768
 go_hidden_size: 768
-freeze_msa: True
-freeze_sequence: True
-freeze_text: True
 #loss:
 #  _target_: src.models.losses.ContrastiveLoss
 #  params:
