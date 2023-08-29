@@ -11,8 +11,6 @@ from pytorch_metric_learning import losses
 from src.models.components.featpronet import FeatProNet
 from src.models.components.simpletransformer import GOBertEmbeddings, GOBertModel, TrunkBertModel, ProtNETBertModel, SelectElement, LearnableLogitScaling, Normalize
 from collections import Counter
-from deepspeed.ops.adam import FusedAdam
-from deepspeed.ops.adam import DeepSpeedCPUAdam
 import torch.nn.functional as F
 import torch.optim as optim
 
