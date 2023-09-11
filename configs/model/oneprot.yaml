@@ -1,12 +1,20 @@
 _target_: src.models.oneprot_module.ONEPROTLitModule
-out_embed_dim: 512
-data_modalities: ['text','structure','go','msa']
+output_dim: 512
+data_modalities: ["text","structure","go","msa"]
 sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t12_35M_UR50D"
-sequence_hidden_size: 1240
-msa_hidden_size: 768
-text_hidden_size: 768
-structure_hidden_size: 768
-go_hidden_size: 768
+text_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+struct_proj: "mlp"
+sequence_proj: "mlp"
+go_proj: "mlp"
+text_proj: "mlp"
+use_logit_scale: True
+local_loss: True
+gather_with_grad: True
+lr: 5e-4
+weight_decay: 1e-4
+max_epochs: 100
+
+
 #loss:
 #  _target_: src.models.losses.ContrastiveLoss
 #  params:

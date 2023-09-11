@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
-
+import os
 from src.data.components.datasets_collate import MSADataset, GODataset, TextDataset, StructureDataset
 from src.data.components.datasets_collate import structure_collate_fn, go_collate_fn, text_collate_fn, msa_collate_fn
 
@@ -49,6 +49,8 @@ class ONEPROTCollateDataModule(LightningDataModule):
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
+        
+        self.num_workers =  int(os.getenv('SLURM_CPUS_PER_TASK'))
         self.save_hyperparameters(logger=False)
         self.data_modalities = data_modalities
         self.sequence_tokenizer = sequence_tokenizer
@@ -144,8 +146,6 @@ class ONEPROTCollateDataModule(LightningDataModule):
                     )
 
         return CombinedLoader(iterables, 'sequential')
-
-
         
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""

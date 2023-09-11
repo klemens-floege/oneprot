@@ -336,7 +336,7 @@ def load_protein_mol2(pFilePath, pLoadHydrogens = False, pLoadH2O = False,
 
     return atomPos, atomTypes, atomNames, atomResidueIndexs, atomResidueType, atomChainName, center
 
-def etract_chain_from_pdb(pdb_path, chain=None):
+def extract_chain_from_pdb(pdb_path, chain=None):
 
     atomPos, atomTypes, atomNames, atomResidueIds, atomResidueType, \
                     atomChainName, transCenter = load_protein_pdb(pdb_path, pChainFilter = chain)
