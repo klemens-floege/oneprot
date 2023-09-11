@@ -7,9 +7,7 @@ from transformers import AutoTokenizer
 import esm
 import numpy as np
 import torch
-#sequence_model = "facebook/esm2_t12_35M_UR50D"
-#sequence_model = "facebook/esm2_t30_150M_UR50D"
-sequence_model = "facebook/esm2_t33_650M_UR50D"
+
 class MSADataset(Dataset):
     def __init__(self, msa_filepath="/p/project/hai_oneprot/merdivan1/files_list.txt", max_length=1024, msa_depth=100, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
         
