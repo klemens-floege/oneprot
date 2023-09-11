@@ -1,6 +1,6 @@
 import pickle
 import json
-from src.data.components.utils import filter_and_create_msa_file_list, greedy_select, read_msa, protein_to_graph, etract_chain_from_pdb
+from src.data.components.utils import filter_and_create_msa_file_list, greedy_select, read_msa, protein_to_graph, extract_chain_from_pdb
 from torch_geometric.data import Batch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -11,7 +11,7 @@ import torch
 #sequence_model = "facebook/esm2_t30_150M_UR50D"
 sequence_model = "facebook/esm2_t33_650M_UR50D"
 class MSADataset(Dataset):
-    def __init__(self, msa_filepath="/p/project/hai_oneprot/merdivan1/files_list.txt", max_length=1024, msa_depth=16, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
+    def __init__(self, msa_filepath="/p/project/hai_oneprot/merdivan1/files_list.txt", max_length=1024, msa_depth=100, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
         
         self.msa_files = filter_and_create_msa_file_list(msa_filepath)
         
@@ -24,24 +24,19 @@ class MSADataset(Dataset):
          # can change this to pass more/fewer sequences
  
     def __len__(self):
-        return len(self.msa_files)
+        #return len(self.msa_files)
+        return 50000
         
-
     def __getitem__(self, idx):
         
         msa_data = read_msa(self.msa_files[idx])
         msa_data = greedy_select(msa_data, num_seqs=self.msa_depth)
         
         sequence = msa_data[0][1]
-        
-        
-        _, _, msa_tokens = self.msa_transformer_batch_converter(msa_data)
+        _, _, msa_input = self.msa_transformer_batch_converter(msa_data)
 
-
-        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt")   
-        sequence_input['input_ids'] = torch.squeeze(sequence_input['input_ids'])
-        sequence_input['attention_mask'] = torch.squeeze(sequence_input['attention_mask'])
-        return sequence_input, msa_tokens
+        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids    
+        return torch.squeeze(sequence_input), msa_input
 
 
 def msa_collate_fn(data):
@@ -55,16 +50,12 @@ def msa_collate_fn(data):
 
     max_length = 0
     for sequence in sequences:
-        if sequence['input_ids'].shape[0]>max_length:
-            max_length = sequence['input_ids'].shape[0]
+        if sequence.shape[0]>max_length:
+            max_length = sequence.shape[0]
 
-    sequence_pad = torch.ones((len(sequences), max_length))
+    sequence_input = torch.ones((len(sequences), max_length))
     for idx, sequence in enumerate(sequences):
-        sequence_pad[idx,:sequence['input_ids'].shape[0]] = sequence['input_ids']
-
-    sequence_input = {}
-    sequence_input['input_ids'] = sequence_pad.long()
-    sequence_input['attention_mask'] = sequence_pad.ne(1).long()
+        sequence_input[idx,:sequence.shape[0]] = sequence
 
     max_length = 0
     max_depth = 0
@@ -76,11 +67,9 @@ def msa_collate_fn(data):
 
     msa_input = torch.ones((len(msa_datas), max_depth, min(max_length, 1024)))    
     for idx, msa_data in enumerate(msa_datas):
-
-
         msa_input[idx, :msa_data.shape[1], :min(msa_data.shape[2],1024)] = msa_data[:,:,:1024]
     
-    return sequence_input, msa_input.long()
+    return sequence_input.long(), msa_input.long()
 
 
 class TextDataset(Dataset):
@@ -96,23 +85,18 @@ class TextDataset(Dataset):
        
  
     def __len__(self):
-        return len(self.ids)
-        
+        #return len(self.ids)
+        return 50000
 
     def __getitem__(self, idx):
         
         sequence = self.loaded_dict[self.ids[idx]]['sequence']
         text = self.loaded_dict[self.ids[idx]]['function']
-        text_input = self.text_tokenizer(text, max_length=512, padding=True, truncation=True, return_tensors="pt")  
+        text_input = self.text_tokenizer(text, max_length=512, padding=True, truncation=True, return_tensors="pt").input_ids
         #print(f"Shape of function tokens = {function_tokens['input_ids'].shape}")
-        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt")    
-        sequence_input['input_ids'] = torch.squeeze(sequence_input['input_ids'])
-        sequence_input['attention_mask'] = torch.squeeze(sequence_input['attention_mask'])
-        text_input['input_ids'] = torch.squeeze(text_input['input_ids'])
-        text_input['token_type_ids'] = torch.squeeze(text_input['token_type_ids'])
-        text_input['attention_mask'] = torch.squeeze(text_input['attention_mask'])
-        
-        return sequence_input, text_input
+        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids 
+  
+        return torch.squeeze(sequence_input), torch.squeeze(text_input)
 
 
 def text_collate_fn(data):
@@ -126,31 +110,23 @@ def text_collate_fn(data):
 
     max_length = 0
     for sequence in sequences:
-        if sequence['input_ids'].shape[0]>max_length:
-            max_length = sequence['input_ids'].shape[0]
-    sequence_pad = torch.ones((len(sequences), max_length))
+        if sequence.shape[0]>max_length:
+            max_length = sequence.shape[0]
+    sequence_input = torch.ones((len(sequences), max_length))
     for idx, sequence in enumerate(sequences):
-        sequence_pad[idx,:sequence['input_ids'].shape[0]] = sequence['input_ids']
-
-    sequence_input = {}
-    sequence_input['input_ids'] = sequence_pad.long()
-    sequence_input['attention_mask'] = sequence_pad.ne(1).long()
+        sequence_input[idx,:sequence.shape[0]] = sequence
 
     max_length = 0
     for text in texts:
-        if text['input_ids'].shape[0]>max_length:
-            max_length = text['input_ids'].shape[0]
+        if text.shape[0]>max_length:
+            max_length = text.shape[0]
 
-    text_pad = torch.ones((len(texts), max_length))
-    text_token_pad = torch.zeros((len(texts), max_length))
+    text_input = torch.ones((len(texts), max_length))
+    for idx, text in enumerate(texts):
+            text_input[idx,:text.shape[0]] = text
 
 
-    text_input = {}
-    text_input['input_ids'] = text_pad.long()
-    text_input['token_type_ids'] = text_token_pad.long()
-    text_input['attention_mask'] = text_pad.ne(1).long()
-    
-    return sequence_input, text_input
+    return sequence_input.long(), text_input.long()
 
 
 class StructureDataset(Dataset):
@@ -162,19 +138,18 @@ class StructureDataset(Dataset):
         self.id_list = list(self.loaded_data.keys())
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
     def __len__(self):
-        return len(self.id_list)
-        #return 50000
+        #return len(self.id_list)
+        return 50000
 
     def __getitem__(self, idx):
         
-        atom_pos, atom_names, atom_amino_id, amino_types, aminoTypeSingleLetter_  = etract_chain_from_pdb(self.loaded_data[self.id_list[idx]]['file_path'])
+        atom_pos, atom_names, atom_amino_id, amino_types, aminoTypeSingleLetter_  = extract_chain_from_pdb(self.loaded_data[self.id_list[idx]]['file_path'])
         sequence = self.loaded_data[self.id_list[idx]]['sequence']
        
         structure_input = protein_to_graph(np.squeeze(amino_types), np.squeeze(atom_amino_id), np.squeeze(atom_names), np.squeeze(atom_pos))
-        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt")    
-        sequence_input['input_ids'] = torch.squeeze(sequence_input['input_ids'])
-        sequence_input['attention_mask'] = torch.squeeze(sequence_input['attention_mask'])
-        return sequence_input, structure_input
+        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids    
+
+        return torch.squeeze(sequence_input), structure_input
 
 def structure_collate_fn(data):
     """
@@ -186,18 +161,15 @@ def structure_collate_fn(data):
     sequences, structures = zip(*data)
     max_length = 0
     for sequence in sequences:
-        if sequence['input_ids'].shape[0]>max_length:
-            max_length = sequence['input_ids'].shape[0]
+        if sequence.shape[0]>max_length:
+            max_length = sequence.shape[0]
 
-    sequence_pad = torch.ones((len(sequences), max_length))
+    sequence_input = torch.ones((len(sequences), max_length))
     for idx, sequence in enumerate(sequences):
-        sequence_pad[idx,:sequence['input_ids'].shape[0]] = sequence['input_ids']
+      
+        sequence_input[idx,:sequence.shape[0]] = sequence
 
-    sequence_input = {}
-    sequence_input['input_ids'] = sequence_pad.long()
-    sequence_input['attention_mask'] = sequence_pad.ne(1).long()
-
-    return sequence_input, Batch.from_data_list(structures)
+    return sequence_input.long(), Batch.from_data_list(structures)
 
 
 class GODataset(Dataset):
@@ -206,21 +178,24 @@ class GODataset(Dataset):
         with open(go_filepath, 'rb') as file:
             self.loaded_dict = pickle.load(file)
         
-        go_embs = np.load('/p/project/hai_oneprot/merdivan1/embeddings.npz', allow_pickle=True)['embds'].item()
-        self.go_emb_token = {}
-        ind = 2
-        for go_emb_key, _ in go_embs.items():
-    
-            self.go_emb_token[go_emb_key] = ind
-            ind = ind +1   
+        #go_embs = np.load('/p/project/hai_oneprot/merdivan1/embeddings.npz', allow_pickle=True)['embds'].item()
+        #self.go_emb_token = {}
+        #ind = 2
+        #for go_emb_key, _ in go_embs.items():
+        #    self.go_emb_token[int(go_emb_key.replace("GO:",""))] = ind
+        #    ind = ind + 1   
+        
+        with open('/p/scratch/hai_oneprot/go_emb_token.pkl', 'rb') as file:
+            self.go_emb_token = pickle.load(file)
+        
         self.ids = list(self.loaded_dict.keys())
          # can change this to pass more/fewer sequences
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
 
     def __len__(self):
-        return len(self.ids)
+        return 50000
+        #return len(self.ids)
         
-
     def __getitem__(self, idx):
         
         sequence = self.loaded_dict[self.ids[idx]]['sequence']
@@ -232,24 +207,17 @@ class GODataset(Dataset):
             if go_term in self.go_emb_token and counter<512:
                 counter = counter+1
 
-        go_embs_pad = torch.ones((counter+1))
-        goterm_mask = torch.zeros((counter+1))
-        goterm_mask[0] = 1 # cls token mask should be 1
-        go_embs_pad[0] = 0
+        go_input = torch.ones((counter+1))
+        go_input[0] = 0
         counter = 0
         for go_term in go_token_list:
             if go_term in self.go_emb_token and counter<512:
-                go_embs_pad[counter+1:counter+2] = torch.tensor(self.go_emb_token[go_term])
-                goterm_mask[counter+1:counter+2] = 1
+                go_input[counter+1:counter+2] = torch.tensor(self.go_emb_token[go_term])
                 counter = counter + 1
         
-        go_input = {}
-        go_input['input_ids'] = go_embs_pad.long()
-        go_input['attention_mask'] = goterm_mask.long()
-        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt")    
-        sequence_input['input_ids'] = torch.squeeze(sequence_input['input_ids'])
-        sequence_input['attention_mask'] = torch.squeeze(sequence_input['attention_mask'])
-        return sequence_input, go_input
+        sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids    
+
+        return torch.squeeze(sequence_input), go_input
 
 
 def go_collate_fn(data):
@@ -261,28 +229,20 @@ def go_collate_fn(data):
     sequences, go_terms = zip(*data)
     max_length = 0
     for sequence in sequences:
-        if sequence['input_ids'].shape[0]>max_length:
-            max_length = sequence['input_ids'].shape[0]
+        if sequence.shape[0]>max_length:
+            max_length = sequence.shape[0]
 
-    sequence_pad = torch.ones((len(sequences), max_length))
+    sequence_input = torch.ones((len(sequences), max_length))
     for idx, sequence in enumerate(sequences):
-        sequence_pad[idx,:sequence['input_ids'].shape[0]] = sequence['input_ids']
+        sequence_input[idx,:sequence.shape[0]] = sequence
 
-    sequence_input = {}
-    sequence_input['input_ids'] = sequence_pad.long()
-    sequence_input['attention_mask'] = sequence_pad.ne(1).long()
-    
     max_length = 0
     for go_term in go_terms:
-        if go_term['input_ids'].shape[0]>max_length:
-            max_length = go_term['input_ids'].shape[0]
+        if go_term.shape[0]>max_length:
+            max_length = go_term.shape[0]
 
-    go_pad = torch.ones((len(go_terms), max_length))
+    go_input = torch.ones((len(go_terms), max_length))
     for idx, go in enumerate(go_terms):
-        go_pad[idx,:go['input_ids'].shape[0]] = go['input_ids']
+        go_input[idx,:go.shape[0]] = go
 
-    go_input = {}
-    go_input['input_ids'] = go_pad.long()
-    go_input['attention_mask'] = go_pad.ne(1).long()
-
-    return sequence_input, go_input
+    return sequence_input.long(), go_input.long()
