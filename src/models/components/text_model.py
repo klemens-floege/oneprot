@@ -24,8 +24,6 @@ except ImportError as e:
     class PretrainedConfig:
         pass
 
-from .hf_configs import arch_dict
-
 
 # utils
 def _camel2snake(s):
@@ -128,8 +126,6 @@ class TextModel(nn.Module):
         else:
             self.config = config
             self.transformer = AutoModel.from_config(config)
-        if pooler_type is None:  # get default arch pooler
-            pooler_type = (arch_dict[self.config.model_type]["pooler"])
 
         self.transformer.eval()
         for param in self.transformer.parameters():
