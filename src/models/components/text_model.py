@@ -136,7 +136,7 @@ class TextModel(nn.Module):
 
         self.pooler = _POOLERS[pooler_type]()
 
-        d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
+        d_model = getattr(self.config, 'hidden_size')
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
         elif proj == 'linear':

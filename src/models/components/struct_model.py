@@ -7,23 +7,30 @@ import re
 import torch
 import torch.nn as nn
 from torch import TensorType
-
+import numpy as np
 from src.models.components.layers import LearnableLogitScaling, Normalize
 from dig.threedgraph.method import ProNet
+
+
 class StructModel(nn.Module):
 
     output_tokens: torch.jit.Final[bool]
 
     def __init__(
             self,
-            output_dim: int,
+            output_dim: int = 512,
+            
+            euler_noise: bool = True,
+            data_augment_eachlayer: bool = True,
+            dropout: float = 0.25,
             proj: str = None,
             use_logit_scale: str = None,
     ):
         super().__init__()
 
+
         self.output_dim = output_dim
-        self.model = ProNet(level='allatom', out_channels = output_dim)
+        self.model = ProNet(level='allatom', out_channels = output_dim, euler_noise=euler_noise, data_augment_eachlayer=data_augment_eachlayer, dropout=dropout)
         d_model = output_dim
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
@@ -47,9 +54,9 @@ class StructModel(nn.Module):
                             Normalize(dim=-1), 
                     )
 
-    def forward(self, x: TensorType):
+    def forward(self, batch: TensorType):
         
-        pooled_out = self.model(x)
+        pooled_out = self.model(batch)
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 
         return normed
@@ -62,3 +69,4 @@ class StructModel(nn.Module):
 
     def init_parameters(self):
         pass
+
