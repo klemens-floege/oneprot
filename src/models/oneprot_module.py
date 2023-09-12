@@ -35,6 +35,11 @@ class ONEPROTLitModule(LightningModule):
         use_logit_scale: bool = True,
         local_loss: bool = True,
         gather_with_grad: bool = True,
+        struct_level: str = 'allatom',
+        mask_aatype: float = 0.2,
+        struct_mask: bool = True,
+        struct_noise: bool = True,
+        struct_deform: bool = True,
         lr: float = 5e-4,
         weight_decay: float = 1e-4, 
         max_epochs:int = 100
@@ -77,6 +82,11 @@ class ONEPROTLitModule(LightningModule):
                 world_size=int(os.environ['WORLD_SIZE']),
             )
         
+        self.struct_mask = struct_mask
+        self.struct_noise = struct_noise
+        self.struct_deform = struct_deform
+        self.mask_aatype = mask_aatype
+        self.struct_level = struct_level
         self.all_sequence_features={}
         for modality in self.data_modalities:
             self.all_sequence_features[modality] = []
@@ -137,11 +147,33 @@ class ONEPROTLitModule(LightningModule):
         """
         opt = self.optimizers()
         
-        
-
         for modality in list(batch.keys()):     
             temp_batch = {}
-            temp_batch[modality] = batch[modality]
+            
+
+            if modality == 'structure':
+                sequence_features, modality_features = batch[modality]
+                if self.struct_mask:
+                    # random mask node aatype
+                    mask_indice = torch.tensor(np.random.choice(modality_features.num_nodes, int(modality_features.num_nodes * self.mask_aatype), replace=False))
+                    modality_features.x[:, 0][mask_indice] = 25
+                if self.struct_noise:
+                    # add gaussian noise to atom coords
+                    gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=modality_features.coords_ca.shape), min=-0.3, max=0.3).to(self.device)
+                    modality_features.coords_ca += gaussian_noise
+                    if self.struct_level != 'aminoacid':
+                        modality_features.coords_n += gaussian_noise
+                        modality_features.coords_c += gaussian_noise
+                if self.struct_deform:
+                    # Anisotropic scale
+                    deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1).to(self.device)
+                    modality_features.coords_ca *= deform
+                    if self.struct_level != 'aminoacid':
+                        modality_features.coords_n *= deform
+                        modality_features.coords_c *= deform
+                temp_batch[modality] = (sequence_features, modality_features)
+            else:
+                temp_batch[modality] = batch[modality]
             sequence_outputs, modality_outputs = self.forward(temp_batch)
             opt.zero_grad()
             loss = self.loss_fn(sequence_outputs[modality], modality_outputs[modality])
