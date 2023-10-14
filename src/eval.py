@@ -2,10 +2,15 @@ from typing import List, Tuple
 
 import hydra
 import pyrootutils
-from lightning import LightningDataModule, LightningModule, Trainer
-from lightning.pytorch.loggers import Logger
+from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
+from pytorch_lightning.loggers import Logger
 from omegaconf import DictConfig
-
+import distributed
+import os
+import torch
+print(torch.cuda.is_available())
+print(torch.__version__)
+print(torch.version.cuda)
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
@@ -82,6 +87,17 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> None:
+    
+    if torch.cuda.is_available():
+        # This enables tf32 on Ampere GPUs which is only 8% slower than
+        # float16 and almost as accurate as float32
+        # This was a default in pytorch until 1.12
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+
+        distributed.init_distributed_mode(12354)
+    
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     utils.extras(cfg)

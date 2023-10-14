@@ -1,12 +1,16 @@
 import pickle
 import json
-from src.data.components.utils import filter_and_create_msa_file_list, greedy_select, read_msa, protein_to_graph, extract_chain_from_pdb
+from src.data.components.utils import filter_and_create_msa_file_list, greedy_select, read_msa
+from src.data.components.utils_struct import protein_to_graph
+ #protein_to_graph, extract_chain_from_pdb
 from torch_geometric.data import Batch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 import esm
 import numpy as np
 import torch
+import h5py
+import pandas as pd
 
 class MSADataset(Dataset):
     def __init__(self, msa_filepath="/p/project/hai_oneprot/merdivan1/files_list.txt", max_length=1024, msa_depth=100, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
@@ -23,7 +27,7 @@ class MSADataset(Dataset):
  
     def __len__(self):
         #return len(self.msa_files)
-        return 50000
+        return 10000
         
     def __getitem__(self, idx):
         
@@ -84,7 +88,7 @@ class TextDataset(Dataset):
  
     def __len__(self):
         #return len(self.ids)
-        return 50000
+        return 10000
 
     def __getitem__(self, idx):
         
@@ -129,22 +133,85 @@ def text_collate_fn(data):
 
 class StructureDataset(Dataset):
 
-    def __init__(self, folder_path="/p/scratch/hai_oneprot/alphafold_swissprot/zipped", sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
+    def __init__(self, split="train", sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
          
         with open('/p/scratch/hai_oneprot/structure_sequence.pkl', 'rb') as file:
             self.loaded_data = pickle.load(file)
-        self.id_list = list(self.loaded_data.keys())
+        self.id_list = []
+        self.split = split
+        if self.split == 'train':
+            self.h5_file =  '/p/scratch/hai_oneprot/alphafold_swiss_v4/AlphaFold_swiss_v4.h5'
+            with open('/p/scratch/hai_oneprot/alphafold_swiss_v4/training.txt', 'r') as file:
+
+                for line in file:
+                    self.id_list.append(line.strip())  # Use .strip() to remove newline characters
+
+        elif self.split == 'val':
+            self.h5_file = '/p/scratch/hai_oneprot/alphafold_swiss_v4/AlphaFold_swiss_v4.h5'
+            with open('/p/scratch/hai_oneprot/alphafold_swiss_v4/validation.txt', 'r') as file:
+
+                for line in file:
+                    self.id_list.append(line.strip())  # Use .strip() to remove newline characters
+
+        elif self.split == 'test':
+            self.h5_file = '/p/scratch/hai_oneprot/alphafold_swiss_v4/AlphaFold_swiss_v4.h5'
+            with open('/p/scratch/hai_oneprot/alphafold_swiss_v4/test.txt', 'r') as file:
+
+                for line in file:
+                    self.id_list.append(line.strip())  # Use .strip() to remove newline characters
+        
+        elif self.split == 'esm_test':
+            self.h5_file = '/p/scratch/hai_oneprot/ESM30_reps_10k.h5'    
+            with open('/p/scratch/hai_oneprot/ESM30_reps_10k.txt', 'r') as file:
+
+                for line in file:
+                    self.id_list.append(line.strip())  # Use .strip() to remove newline characters
+        elif self.split == 'pdb_test_all':
+            self.h5_file = '/p/scratch/hai_oneprot/PDB_30removed_from_AFS4/PDB_test_sample2.h5'  
+            df = pd.read_csv('/p/scratch/hai_oneprot/pdb_and_chains_new.csv')
+
+            self.id_list = df['pdb'].unique().tolist()
+
+        elif self.split == 'pdb_test_chain':
+            self.h5_file = '/p/scratch/hai_oneprot/PDB_30removed_from_AFS4/PDB_test_sample2.h5'  
+            df = pd.read_csv('/p/scratch/hai_oneprot/pdb_and_chains_new.csv')
+
+            self.id_list = df['pdb'].tolist()  
+            self.chain_list = df['chain'].tolist() 
+                
+        
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
     def __len__(self):
-        #return len(self.id_list)
-        return 50000
+        return len(self.id_list)
+        #return 40000
 
     def __getitem__(self, idx):
         
-        atom_pos, atom_names, atom_amino_id, amino_types, aminoTypeSingleLetter_  = extract_chain_from_pdb(self.loaded_data[self.id_list[idx]]['file_path'])
-        sequence = self.loaded_data[self.id_list[idx]]['sequence']
-       
-        structure_input = protein_to_graph(np.squeeze(amino_types), np.squeeze(atom_amino_id), np.squeeze(atom_names), np.squeeze(atom_pos))
+        #atom_pos, atom_names, atom_amino_id, amino_types, aminoTypeSingleLetter_  = extract_chain_from_pdb(self.loaded_data[self.id_list[idx]]['file_path'])
+        #sequence = self.loaded_data[self.id_list[idx]]['sequence']
+        if self.split == 'pdb_test_chain':
+            try:
+                with h5py.File(self.h5_file, 'r') as file:
+                    sequence = file[f'{self.id_list[idx]}/structure/0/{self.chain_list[idx]}/residues/seq1'][()].decode('utf-8')
+                    sequence = sequence.replace('X', '')
+            except:
+                print(f"Issue with {self.id_list[idx]}")
+            structure_input = protein_to_graph(self.id_list[idx], self.h5_file, 'pdb', self.chain_list[idx])
+        elif self.split == 'pdb_test_all':
+            with h5py.File(self.h5_file, 'r') as file:
+                sequence = ''
+                for chain in file[f'{self.id_list[idx]}']['structure']['0'].keys():
+                    sequence += file[f'{self.id_list[idx]}/structure/0/{chain}/residues/seq1'][()].decode('utf-8')
+                    sequence = sequence.replace('X', '')
+            structure_input = protein_to_graph(self.id_list[idx], self.h5_file, 'pdb', 'all')
+
+        else:
+            with h5py.File(self.h5_file, 'r') as file:
+                sequence = file[self.id_list[idx]]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
+                
+            structure_input = protein_to_graph(self.id_list[idx], self.h5_file, 'non_pdb' , 'A')
+
+
         sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids    
 
         return torch.squeeze(sequence_input), structure_input
@@ -191,7 +258,7 @@ class GODataset(Dataset):
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
 
     def __len__(self):
-        return 50000
+        return 10000
         #return len(self.ids)
         
     def __getitem__(self, idx):

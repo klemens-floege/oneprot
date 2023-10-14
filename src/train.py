@@ -11,7 +11,9 @@ from pytorch_lightning.loggers import Logger
 from omegaconf import DictConfig
 import os 
 import distributed
-
+print(torch.cuda.is_available())
+print(torch.__version__)
+print(torch.version.cuda)
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
@@ -122,7 +124,7 @@ def main(cfg: DictConfig) -> Optional[float]:
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
 
-    distributed.init_distributed_mode(12354)
+        distributed.init_distributed_mode(12354)
 
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)

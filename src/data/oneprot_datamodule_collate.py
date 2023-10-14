@@ -71,11 +71,17 @@ class ONEPROTCollateDataModule(LightningDataModule):
             self.datasets = {}
             self.datasets_collate_fn = {}
             for modality in self.data_modalities:
+                
+                
                 if modality == 'go':
                     dataset = GODataset(sequence_tokenizer=self.sequence_tokenizer)
                     self.datasets_collate_fn[modality] = go_collate_fn
                 elif modality == 'structure':
-                    dataset = StructureDataset(sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["structure_train"] =  StructureDataset(split='train', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["structure_val"] =  StructureDataset(split='val', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["structure_test"] =  StructureDataset(split='pdb_test_chain', sequence_tokenizer=self.sequence_tokenizer)
+
+                    print(f" Structure Train/Validation/Test Dataset Size = {len(self.datasets['structure_train'])} / {len(self.datasets['structure_val'])} / {len(self.datasets['structure_test'])}")
                     self.datasets_collate_fn[modality] = structure_collate_fn
                 elif modality == 'text':
                     dataset = TextDataset(sequence_tokenizer=self.sequence_tokenizer)
@@ -84,6 +90,11 @@ class ONEPROTCollateDataModule(LightningDataModule):
                     dataset = MSADataset(sequence_tokenizer=self.sequence_tokenizer)
                     self.datasets_collate_fn[modality] = msa_collate_fn
                 
+                #self.datasets[f"{modality}_train"] = data_train
+                #self.datasets[f"{modality}_val"] = data_val
+                #self.datasets[f"{modality}_test"] = data_test
+                
+                '''
                 print(f" {modality} Dataset Size = {len(dataset)}")
 
                 train_len = int(self.hparams.train_val_test_split[0]*(len(dataset)))
@@ -98,7 +109,7 @@ class ONEPROTCollateDataModule(LightningDataModule):
                 self.datasets[f"{modality}_train"] = data_train
                 self.datasets[f"{modality}_val"] = data_val
                 self.datasets[f"{modality}_test"] = data_test
-           
+                '''
     def train_dataloader(self):
         
         iterables = {}
@@ -126,6 +137,7 @@ class ONEPROTCollateDataModule(LightningDataModule):
                         num_workers=self.hparams.num_workers,
                         pin_memory=self.hparams.pin_memory,
                         collate_fn=self.datasets_collate_fn[modality],
+                        drop_last=True,
                         shuffle=False,
                     )
 
@@ -142,6 +154,7 @@ class ONEPROTCollateDataModule(LightningDataModule):
                         num_workers=self.hparams.num_workers,
                         pin_memory=self.hparams.pin_memory,
                         collate_fn=self.datasets_collate_fn[modality],
+                        drop_last=True,
                         shuffle=False,
                     )
 

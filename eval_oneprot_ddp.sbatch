@@ -1,12 +1,12 @@
 #!/bin/bash -x
 
-#SBATCH --account hai_oneprot
-#SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_out.out
-#SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_err.out
-#SBATCH --time 08:00:00
+#SBATCH --account hai_hmgu
+#SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/eval_%j_out.out
+#SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/eval_%j_err.out
+#SBATCH --time 01:00:00
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node 4
-#SBATCH --nodes 4
+#SBATCH --nodes 2
 #SBATCH --partition booster
 #SBATCH --gres gpu:4
 
@@ -48,5 +48,5 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 echo "-------- Inside of the container ------------"
 srun --cpu-bind=none bash -c '
  export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1;
- apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp
+ apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/sing_torch_cluster_nv8.sif python3 src/eval.py experiment=evaluate_ddp
 '

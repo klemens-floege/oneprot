@@ -13,26 +13,25 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["oneprot", "facebook/esm2_t33_650M_UR50D"]
+tags: ["oneprot", "facebook/esm2_t36_3B_UR50D"]
 
 seed: 12345
 
 model:
   data_modalities: ['structure']
-  sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t12_35M_UR50D" #"facebook/esm2_t33_650M_UR50D" 
-  sequence_hidden_size: 1280
+  sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t33_650M_UR50D"  "facebook/esm2_t12_35M_UR50D" "facebook/esm2_t36_3B_UR50D"
  
 trainer:
   min_epochs: 1
-  max_epochs: 1000
+  max_epochs: 100
   #max_steps: 10
-  num_nodes: 2
-  gradient_clip_val: 1.0
-  #num_sanity_val_steps: -1
+  num_nodes: 4
+  #precision: 16
+  #gradient_clip_val: 1.0
+  num_sanity_val_steps: -1
   #val_check_interval: 500
 
 data:
   data_modalities: ['structure']
-  sequence_tokenizer: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t12_35M_UR50D"
-  batch_size: 8
-  num_workers: 4
+  sequence_tokenizer: "facebook/esm2_t33_650M_UR50D"
+  batch_size: 128

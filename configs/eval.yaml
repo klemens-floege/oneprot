@@ -2,17 +2,18 @@
 
 defaults:
   - _self_
-  - data: mnist.yaml # choose datamodule with `test_dataloader()` for evaluation
-  - model: mnist.yaml
-  - logger: null
+  - data: oneprot.yaml
+  - model: oneprot.yaml
+  - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
   - trainer: default.yaml
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml
-
+  - experiment: null
 task_name: "eval"
 
 tags: ["dev"]
 
 # passing checkpoint path is necessary for evaluation
-ckpt_path: ???
+ckpt_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2023-10-12_19-43-06/checkpoints/last.ckpt
+#/p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2023-10-07_06-43-07/checkpoints/epoch_014.ckpt

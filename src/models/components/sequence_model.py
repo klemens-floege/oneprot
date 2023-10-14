@@ -9,13 +9,14 @@ import torch.nn as nn
 from torch import TensorType
 
 from src.models.components.layers import LearnableLogitScaling, Normalize
-
+from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
 
 try:
     import transformers
     from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
+
 except ImportError as e:
     transformers = None
 
@@ -104,7 +105,7 @@ class SequenceModel(nn.Module):
             model_name_or_path: str,
             output_dim: int,
             config: PretrainedConfig = None,
-            pooler_type: str= 'cls_pooler',
+            pooler_type: str= 'mean_pooler',
             proj: str = None,
             use_logit_scale: str = None,
             pretrained: bool = True,
@@ -113,7 +114,7 @@ class SequenceModel(nn.Module):
         self.output_dim = output_dim
 
         # TODO: find better way to get this information
-        uses_transformer_pooler = (pooler_type == "cls_pooler")
+        uses_transformer_pooler = (pooler_type == "mean_pooler")
 
         if transformers is None:
             raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
@@ -129,6 +130,8 @@ class SequenceModel(nn.Module):
         self.transformer.eval()
         for param in self.transformer.parameters():
             param.requires_grad = False
+
+        self.transformer.gradient_checkpointing_enable()
 
         self.pooler = _POOLERS[pooler_type]()
 
