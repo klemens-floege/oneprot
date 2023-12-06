@@ -2,6 +2,13 @@ _target_: src.models.oneprot_module.ONEPROTLitModule
 oneprot: 
   _target_: torch.nn.ModuleDict
   modules:
+    sequence: 
+      _target_: src.models.components.sequence.SequenceModel
+      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
+      pooler_type: mean_pooler
+      output_dim: 512
+      proj: linear
+      use_logit_scale: False
     structure: 
       _target_: src.models.components.structure.StructureModel
       encoder:
@@ -14,13 +21,13 @@ oneprot:
       output_dim: 512
       proj: linear
       use_logit_scale: False
-    sequence: 
-      _target_: src.models.components.sequence.SequenceModel
-      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
-      pooler_type: mean_pooler
-      output_dim: 512
+    msa: 
+      _target_: src.models.components.msa.MsaModel
+      pooler_type: cls_pooler
       proj: linear
+      output_dim: 512
       use_logit_scale: False
+
 loss_fn: CLIP
 local_loss: True
 gather_with_grad: True
