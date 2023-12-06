@@ -3,11 +3,9 @@ import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
-
-
-
-from src.data.components.datasets import MSADataset, GODataset, TextDataset, StructureDataset
-from src.data.components.datasets import structure_collate_fn
+import os
+from src.data.components.datasets import MSADataset, StructureDataset
+from src.data.components.datasets import structure_collate_fn,  msa_collate_fn
 
 
 class ONEPROTDataModule(LightningDataModule):
@@ -39,8 +37,9 @@ class ONEPROTDataModule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data/",
+        data_dir: str = "/p/scratch/hai_oneprot/openfoldh5s/",
         data_modalities: list = ['sequence','structure'],
+        sequence_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
         train_val_test_split: Tuple[float, float, float] = (0.9, 0.05, 0.05),
         batch_size: int = 64,
         num_workers: int = 0,
@@ -50,8 +49,12 @@ class ONEPROTDataModule(LightningDataModule):
 
         # this line allows to access init params with 'self.hparams' attribute
         # also ensures init params will be stored in ckpt
+        
+        self.num_workers =  int(os.getenv('SLURM_CPUS_PER_TASK'))
         self.save_hyperparameters(logger=False)
         self.data_modalities = data_modalities
+        self.data_dir = data_dir
+        self.sequence_tokenizer = sequence_tokenizer
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
@@ -67,165 +70,75 @@ class ONEPROTDataModule(LightningDataModule):
         if not self.data_train and not self.data_val and not self.data_test:
             
             self.datasets = {}
+            self.datasets_collate_fn = {}
             for modality in self.data_modalities:
-                if modality == 'go':
-                    dataset = GODataset()
-                elif modality == 'structure':
-                    dataset = StructureDataset()
-                elif modality == 'text':
-                    dataset = TextDataset()
-                elif modality == 'msa':
-                    dataset = MSADataset()
                 
-                print(f" {modality} Dataset Size = {len(dataset)}")
+                if modality == 'structure':
+                    self.datasets["structure_train"] =  StructureDataset(data_dir =self.data_dir, split='train', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["structure_val"] =  StructureDataset(data_dir =self.data_dir, split='validation', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["structure_test"] =  StructureDataset(data_dir =self.data_dir, split='test', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets_collate_fn[modality] = structure_collate_fn
 
-                train_len = int(self.hparams.train_val_test_split[0]*(len(dataset)))
-                val_len = int(self.hparams.train_val_test_split[1]*(len(dataset)))
-                test_len = (len(dataset) - train_len - val_len)
+                    print(f" Structure Train/Validation/Test Dataset Size = {len(self.datasets['structure_train'])} / {len(self.datasets['structure_val'])} / {len(self.datasets['structure_test'])}")
+
+                elif modality == 'msa':
+                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', sequence_tokenizer=self.sequence_tokenizer)
+                    self.datasets_collate_fn[modality] = msa_collate_fn
+
+                    print(f" MSA Train/Validation/Test Dataset Size = {len(self.datasets['msa_train'])} / {len(self.datasets['msa_val'])} / {len(self.datasets['msa_test'])}")
+
                 
-                data_train, data_val, data_test = random_split(
-                    dataset=dataset,
-                    lengths=[train_len, val_len, test_len],
-                    generator=torch.Generator().manual_seed(42),
-                )
-                self.datasets[f"{modality}_train"] = data_train
-                self.datasets[f"{modality}_val"] = data_val
-                self.datasets[f"{modality}_test"] = data_test
-            
     def train_dataloader(self):
         
-        if len(self.data_modalities)>1:
-            iterables = {}
-            for modality in self.data_modalities:
-            
-                if modality != 'structure' :
-                    iterables[modality] = DataLoader(
-                                dataset=self.datasets[f"{modality}_train"],
-                                batch_size=self.hparams.batch_size,
-                                num_workers=self.hparams.num_workers,
-                                pin_memory=self.hparams.pin_memory,
-                                shuffle=True,
-                            )
-                else:
-                    iterables[modality] = DataLoader(
-                            dataset=self.datasets["structure_train"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=True,
-                        )
-            return CombinedLoader(iterables, 'min_size')
-        else:
-      
-            if 'structure' not in self.data_modalities:
-                return DataLoader(
-                            dataset=self.datasets[f"{self.data_modalities[0]}_train"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            shuffle=True,
-                        )
-            
-            else:
-                return DataLoader(
-                            dataset=self.datasets["structure_train"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=True,
-                        )
+        iterables = {}
+        for modality in self.data_modalities:
+        
+            iterables[modality] = DataLoader(
+                        dataset=self.datasets[f"{modality}_train"],
+                        batch_size=self.hparams.batch_size,
+                        num_workers=self.hparams.num_workers,
+                        pin_memory=self.hparams.pin_memory,
+                        collate_fn=self.datasets_collate_fn[modality],
+                        shuffle=True,
+                    )
+
+        return CombinedLoader(iterables, 'min_size')
 
     def val_dataloader(self):
         
-        if len(self.data_modalities)>1:
-            iterables = {}
-            for modality in self.data_modalities:
-            
-                if modality != 'structure':
-                    iterables[modality] = DataLoader(
-                                dataset=self.datasets[f"{modality}_val"],
-                                batch_size=4*self.hparams.batch_size,
-                                num_workers=self.hparams.num_workers,
-                                pin_memory=self.hparams.pin_memory,
-                                shuffle=False,
-                            )
-                else:
-                    iterables[modality] = DataLoader(
-                            dataset=self.datasets["structure_val"],
-                            batch_size=4*self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=False,
-                        )
-            return CombinedLoader(iterables, 'sequential')
-        else:
+        iterables = {}
+        for modality in self.data_modalities:
+        
+            iterables[modality] = DataLoader(
+                        dataset=self.datasets[f"{modality}_val"],
+                        batch_size=self.hparams.batch_size,
+                        num_workers=self.hparams.num_workers,
+                        pin_memory=self.hparams.pin_memory,
+                        collate_fn=self.datasets_collate_fn[modality],
+                        drop_last=True,
+                        shuffle=False,
+                    )
 
-            if 'structure' not in self.data_modalities:
-                return DataLoader(
-                            dataset=self.datasets[f"{modality}_val"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            shuffle=False,
-                        )
-            
-            else:
-                return DataLoader(
-                            dataset=self.datasets["structure_val"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=False,
-                        )
-            
+        return CombinedLoader(iterables, 'sequential')
+
     def test_dataloader(self):
         
-        if len(self.data_modalities)>1:
-            iterables = {}
-            for modality in self.data_modalities:
-            
-                if modality != 'structure' :
-                    iterables[modality] = DataLoader(
-                                dataset=self.datasets[f"{self.data_modalities[0]}_test"],
-                                batch_size=self.hparams.batch_size,
-                                num_workers=self.hparams.num_workers,
-                                pin_memory=self.hparams.pin_memory,
-                                shuffle=False,
-                            )
-                else:
-                    iterables[modality] = DataLoader(
-                            dataset=self.datasets["structure_test"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=False,
-                        )
-            return CombinedLoader(iterables, 'sequential')
-        else:
+        iterables = {}
+        for modality in self.data_modalities:
+        
+            iterables[modality] = DataLoader(
+                        dataset=self.datasets[f"{modality}_test"],
+                        batch_size=self.hparams.batch_size,
+                        num_workers=self.hparams.num_workers,
+                        pin_memory=self.hparams.pin_memory,
+                        collate_fn=self.datasets_collate_fn[modality],
+                        drop_last=True,
+                        shuffle=False,
+                    )
 
-            if modality != 'structure' :
-                return DataLoader(
-                            dataset=self.datasets[f"{self.data_modalities[0]}_test"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            shuffle=False,
-                        )
-            
-            else:
-                return DataLoader(
-                            dataset=self.datasets["structure_test"],
-                            batch_size=self.hparams.batch_size,
-                            num_workers=self.hparams.num_workers,
-                            pin_memory=self.hparams.pin_memory,
-                            collate_fn=structure_collate_fn,
-                            shuffle=False,
-                        )
+        return CombinedLoader(iterables, 'sequential')
         
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""

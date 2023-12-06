@@ -1,8 +1,0 @@
-_target_: src.data.oneprot_datamodule_collate.ONEPROTCollateDataModule
-data_dir: ${paths.data_dir}
-batch_size: 8
-train_val_test_split: [0.9, 0.05, 0.05]
-num_workers: 0
-sequence_tokenizer: "facebook/esm2_t12_35M_UR50D" #"facebook/esm2_t33_650M_UR50D"
-data_modalities: ['text','structure','go','msa']
-pin_memory: False

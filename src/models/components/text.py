@@ -7,10 +7,7 @@ import re
 import torch
 import torch.nn as nn
 from torch import TensorType
-
 from src.models.components.layers import LearnableLogitScaling, Normalize
-from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
-
 try:
     import transformers
     from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
@@ -20,14 +17,11 @@ try:
 except ImportError as e:
     transformers = None
 
-
     class BaseModelOutput:
         pass
 
-
     class PretrainedConfig:
         pass
-
 
 
 # utils
@@ -96,7 +90,7 @@ class ClsLastHiddenStatePooler(nn.Module):
         return x.last_hidden_state[:, self.cls_token_position, :]
 
 
-class SequenceModel(nn.Module):
+class TextModel(nn.Module):
     """HuggingFace model adapter"""
     output_tokens: torch.jit.Final[bool]
 
@@ -105,7 +99,7 @@ class SequenceModel(nn.Module):
             model_name_or_path: str,
             output_dim: int,
             config: PretrainedConfig = None,
-            pooler_type: str= 'mean_pooler',
+            pooler_type: str= 'cls_pooler',
             proj: str = None,
             use_logit_scale: str = None,
             pretrained: bool = True,
@@ -114,7 +108,7 @@ class SequenceModel(nn.Module):
         self.output_dim = output_dim
 
         # TODO: find better way to get this information
-        uses_transformer_pooler = (pooler_type == "mean_pooler")
+        uses_transformer_pooler = (pooler_type == "cls_pooler")
 
         if transformers is None:
             raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
@@ -122,32 +116,30 @@ class SequenceModel(nn.Module):
             self.config = AutoConfig.from_pretrained(model_name_or_path)
             create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
                 AutoModel.from_config, self.config)
-            self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+            # TODO: do all model configs have this attribute? PretrainedConfig does so yes??
+            if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:
+                self.transformer = create_func(model_args)
+                self.transformer = self.transformer.encoder
+            else:
+                self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
         else:
             self.config = config
             self.transformer = AutoModel.from_config(config)
-      
+
         self.transformer.eval()
+        
         for param in self.transformer.parameters():
             param.requires_grad = False
 
-        self.transformer.gradient_checkpointing_enable()
-
         self.pooler = _POOLERS[pooler_type]()
 
-        d_model = getattr(self.config, "hidden_size")
+        d_model = getattr(self.config, 'hidden_size')
+
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
         elif proj == 'linear':
             self.proj = nn.Linear(d_model, output_dim, bias=False)
-        elif proj == 'mlp':
-            hidden_size = (d_model + output_dim) // 2
-            self.proj = nn.Sequential(
-                nn.Linear(d_model, hidden_size, bias=False),
-                nn.GELU(),
-                #nn.Dropout(p=0.5),
-                nn.Linear(hidden_size, output_dim, bias=False),
-            )
+       
         if use_logit_scale:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 
@@ -156,6 +148,7 @@ class SequenceModel(nn.Module):
         else:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 
+                            LearnableLogitScaling(learnable=False)
                     )
 
     def forward(self, x: TensorType):
@@ -165,7 +158,6 @@ class SequenceModel(nn.Module):
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 
         return normed
-
 
     @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):

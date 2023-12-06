@@ -37,7 +37,7 @@ def get_atom_pos(amino_types, atom_names, atom_amino_id, atom_pos):
         mask_h = np.char.equal(atom_names.astype('S'), b'NH1')
 
         _, atom_amino_id = np.unique(atom_amino_id, return_inverse=True)
-
+       
         pos_n = np.full((len(amino_types),3),np.nan)
         pos_n[atom_amino_id[mask_n]] = atom_pos[mask_n]
         pos_n = torch.FloatTensor(pos_n)
@@ -166,15 +166,15 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                         atom_names = []
                         atom_pos = []
 
-                        for chain in file[f'{identifier}']['structure']['0'].keys():
-                                single_amino_types = file[f'{identifier}']['structure']['0'][f'{chain}']['residues']['seq1'][()]
+                        for chain_id in file[f'{identifier}']['structure']['0'].keys():
+                                single_amino_types = file[f'{identifier}']['structure']['0'][f'{chain_id}']['residues']['seq1'][()]
                                 single_amino_types = single_amino_types.decode('utf-8').replace('X','')
                                 single_amino_types = [res1int[AA] for AA in single_amino_types] #size: (n_aa)
                                 amino_types.extend(single_amino_types)
 
-                                atom_amino_id.extend(file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['atom_amino_id'][()]) #size: (n_atom,)
-                                atom_names.extend(file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['type'][()]) #size: (n_atom,)
-                                atom_pos.extend(file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['xyz'][()]) #size: (n_atoms, 3)
+                                atom_amino_id.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['atom_amino_id'][()]) #size: (n_atom,)
+                                atom_names.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['type'][()]) #size: (n_atom,)
+                                atom_pos.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['xyz'][()]) #size: (n_atoms, 3)
 
                 else:
 
@@ -186,11 +186,10 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                         atom_names = file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['type'][()] #size: (n_atom,)
                         atom_pos = file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['xyz'][()] #size: (n_atoms, 3)
 
-
-        print(f"Entered with {identifier} {chain} {atom_pos.shape}")
-        pos_n, pos_ca, pos_c, pos_cb, pos_g, pos_d, pos_e, pos_z, pos_h = get_atom_pos(amino_types, atom_names, atom_amino_id, atom_pos)
-        print(f"Passed with {identifier} {chain}  {atom_pos.shape}")
-
+        try:
+                pos_n, pos_ca, pos_c, pos_cb, pos_g, pos_d, pos_e, pos_z, pos_h = get_atom_pos(amino_types, atom_names, atom_amino_id, atom_pos)
+        except:
+                print(f"Issue with {identifier} {chain} ")      
                    
         # atoms to compute side chain torsion angles: N, CA, CB, _G/_G1, _D/_D1, _E/_E1, _Z, NH1
 
@@ -212,6 +211,7 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
         data.coords_c = pos_c
 
         try:
+            #print(identifier,len(data.x),len(data.coords_ca),len(data.coords_n),len(data.coords_c),len(data.side_chain_embs),len(data.bb_embs))
             assert len(data.x)==len(data.coords_ca)==len(data.coords_n)==len(data.coords_c)==len(data.side_chain_embs)==len(data.bb_embs)
         except AssertionError:
             print(identifier)

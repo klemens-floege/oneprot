@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: oneprot_collate.yaml
+  - override /data: oneprot.yaml
   - override /model: oneprot.yaml
   - override /callbacks: default.yaml
   - override /logger: tensorboard.yaml
@@ -17,10 +17,6 @@ tags: ["oneprot", "facebook/esm2_t36_3B_UR50D"]
 
 seed: 12345
 
-model:
-  data_modalities: ['structure']
-  sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t33_650M_UR50D"  "facebook/esm2_t12_35M_UR50D" "facebook/esm2_t36_3B_UR50D"
- 
 trainer:
   min_epochs: 1
   max_epochs: 100
@@ -29,7 +25,7 @@ trainer:
   #precision: 16
   #gradient_clip_val: 1.0
   num_sanity_val_steps: -1
-  #val_check_interval: 500
+  #val_check_interval: 100
 
 data:
   data_modalities: ['structure']

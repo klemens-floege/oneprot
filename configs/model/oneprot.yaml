@@ -1,35 +1,32 @@
 _target_: src.models.oneprot_module.ONEPROTLitModule
-output_dim: 512
-data_modalities: ["text","structure","go","msa"]
-sequence_model: "facebook/esm2_t33_650M_UR50D" #"facebook/esm2_t12_35M_UR50D"
-text_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
-struct_proj: "mlp"
-sequence_proj: "mlp"
-go_proj: "mlp"
-text_proj: "mlp"
-use_logit_scale: True
+oneprot: 
+  _target_: torch.nn.ModuleDict
+  modules:
+    structure: 
+      _target_: src.models.components.structure.StructureModel
+      encoder:
+        _target_: dig.threedgraph.method.ProNet
+        level: aminoacid
+        out_channels: 512
+        euler_noise: False
+        data_augment_eachlayer: False 
+        dropout: 0.
+      output_dim: 512
+      proj: linear
+      use_logit_scale: False
+    sequence: 
+      _target_: src.models.components.sequence.SequenceModel
+      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
+      pooler_type: mean_pooler
+      output_dim: 512
+      proj: linear
+      use_logit_scale: False
+loss_fn: CLIP
 local_loss: True
 gather_with_grad: True
-lr: 5e-4
-weight_decay: 1e-4
-max_epochs: 100
-
-
-#loss:
-#  _target_: src.models.losses.ContrastiveLoss
-#  params:
-#    margin: 1.0
-#    temperature: 0.1
-
-#optimizer:
-#  _target_: torch.optim.Adam
-#  params:
-#    lr: 0.001
-#    weight_decay: 0.0
-
-#scheduler:
-#  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-#  params:
-#    mode: min
-#    factor: 0.1
-#    patience: 10
+compile: False
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0

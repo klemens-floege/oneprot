@@ -7,10 +7,12 @@ import re
 import torch
 import torch.nn as nn
 from torch import TensorType
+import numpy as np
 from src.models.components.layers import LearnableLogitScaling, Normalize
+
 try:
     import transformers
-    from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
+    from transformers import BertModel, AutoTokenizer, BertConfig, PretrainedConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
 except ImportError as e:
@@ -23,7 +25,6 @@ except ImportError as e:
 
     class PretrainedConfig:
         pass
-
 
 # utils
 def _camel2snake(s):
@@ -90,66 +91,44 @@ class ClsLastHiddenStatePooler(nn.Module):
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
         return x.last_hidden_state[:, self.cls_token_position, :]
 
-
-class TextModel(nn.Module):
+class GoModel(nn.Module):
     """HuggingFace model adapter"""
     output_tokens: torch.jit.Final[bool]
 
     def __init__(
             self,
-            model_name_or_path: str,
             output_dim: int,
-            config: PretrainedConfig = None,
+            num_attention_heads: int=10,
+            num_hidden_layers: int=10,
+            max_position_embeddings: int=300,
+            hidden_size: int=200,
+            proj: str = 'mlp',
             pooler_type: str= 'cls_pooler',
-            proj: str = None,
             use_logit_scale: str = None,
-            pretrained: bool = True,
     ):
         super().__init__()
         self.output_dim = output_dim
 
-        # TODO: find better way to get this information
-        uses_transformer_pooler = (pooler_type == "cls_pooler")
+        # Initializing a BERT bert-base-uncased style configuration
+        self.config = BertConfig(vocab_size=44263, pad_token_id=1, num_attention_heads=num_attention_heads, num_hidden_layers=num_hidden_layers, max_position_embeddings=max_position_embeddings, hidden_size=hidden_size)
 
-        if transformers is None:
-            raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
-        if config is None:
-            self.config = AutoConfig.from_pretrained(model_name_or_path)
-            create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
-                AutoModel.from_config, self.config)
-            # TODO: do all model configs have this attribute? PretrainedConfig does so yes??
-            if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:
-                self.transformer = create_func(model_args)
-                self.transformer = self.transformer.encoder
-            else:
-                self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
-        else:
-            self.config = config
-            self.transformer = AutoModel.from_config(config)
-
-        self.transformer.eval()
-        for param in self.transformer.parameters():
-            param.requires_grad = False
-        # FIXME downstream users of OpenCLIP models use these attr, need to verify valid across all models
-        self.vocab_size = getattr(self.config, 'vocab_size', 0)
-        self.context_length = getattr(self.config, 'max_position_embeddings', 0)
-
+        # Initializing a model (with random weights) from the bert-base-uncased style configuration
+        self.transformer = BertModel(self.config)
+        self.transformer.embeddings.position_embeddings.weight.data = torch.zeros((self.config.max_position_embeddings, self.config.hidden_size))
+        self.transformer.embeddings.position_embeddings.requires_grad_ = False
+        
+        with open('/p/scratch/hai_oneprot/go_emb_vals.npy', 'rb') as f:
+            go_emb_vals = np.load(f)
+        
+        #self.transformer.embeddings.word_embeddings.weight.data  = torch.FloatTensor(go_emb_vals)
+        
         self.pooler = _POOLERS[pooler_type]()
-
-        d_model = getattr(self.config, 'hidden_size')
+        
+        d_model = hidden_size
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
         elif proj == 'linear':
             self.proj = nn.Linear(d_model, output_dim, bias=False)
-        elif proj == 'mlp':
-            hidden_size = (d_model + output_dim) // 2
-            self.proj = nn.Sequential(
-                nn.Linear(d_model, hidden_size, bias=False),
-                nn.GELU(),
-                #nn.Dropout(p=0.5),
-                nn.Linear(hidden_size, output_dim, bias=False),
-            )
-        
         if use_logit_scale:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 
@@ -167,28 +146,6 @@ class TextModel(nn.Module):
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 
         return normed
-
-
-    def lock(self, unlocked_layers: int = 0, freeze_layer_norm: bool = True):
-        if not unlocked_layers:  # full freezing
-            for n, p in self.transformer.named_parameters():
-                p.requires_grad = (not freeze_layer_norm) if "LayerNorm" in n.split(".") else False
-            return
-
-        encoder = self.transformer.encoder if hasattr(self.transformer, 'encoder') else self.transformer
-        layer_list = getattr(encoder, arch_dict[self.config.model_type]["config_names"]["layer_attr"])
-        print(f"Unlocking {unlocked_layers}/{len(layer_list) + 1} layers of hf model")
-        embeddings = getattr(
-            self.transformer, arch_dict[self.config.model_type]["config_names"]["token_embeddings_attr"])
-        modules = [embeddings, *layer_list][:-unlocked_layers]
-        # freeze layers
-        for module in modules:
-            for n, p in module.named_parameters():
-                p.requires_grad = (not freeze_layer_norm) if "LayerNorm" in n.split(".") else False
-
-    @torch.jit.ignore
-    def set_grad_checkpointing(self, enable=True):
-        self.transformer.gradient_checkpointing_enable()
 
     def init_parameters(self):
         pass

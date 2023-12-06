@@ -1,0 +1,12 @@
+_target_: src.models.components.structure.StructureModel
+  encoder:
+    _target_: dig.threedgraph.method.ProNet
+    level: aminoacid
+    out_channels: 512
+    euler_noise: False
+    data_augment_eachlayer: False 
+    dropout: 0.
+
+  proj: linear
+  output_dim: 512
+  use_logit_scale: False

@@ -7,14 +7,16 @@ import re
 import torch
 import torch.nn as nn
 from torch import TensorType
-import numpy as np
+
 from src.models.components.layers import LearnableLogitScaling, Normalize
+from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
 
 try:
     import transformers
-    from transformers import BertModel, AutoTokenizer, BertConfig, PretrainedConfig
+    from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
+
 except ImportError as e:
     transformers = None
 
@@ -25,6 +27,7 @@ except ImportError as e:
 
     class PretrainedConfig:
         pass
+
 
 # utils
 def _camel2snake(s):
@@ -91,52 +94,52 @@ class ClsLastHiddenStatePooler(nn.Module):
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
         return x.last_hidden_state[:, self.cls_token_position, :]
 
-class GoModel(nn.Module):
+
+class SequenceModel(nn.Module):
     """HuggingFace model adapter"""
     output_tokens: torch.jit.Final[bool]
 
     def __init__(
             self,
+            model_name_or_path: str,
             output_dim: int,
-            num_attention_heads: int=10,
-            num_hidden_layers: int=10,
-            max_position_embeddings: int=300,
-            hidden_size: int=200,
-            proj: str = 'mlp',
-            pooler_type: str= 'cls_pooler',
+            config: PretrainedConfig = None,
+            pooler_type: str= 'mean_pooler',
+            proj: str = None,
             use_logit_scale: str = None,
+            pretrained: bool = True,
     ):
         super().__init__()
         self.output_dim = output_dim
 
-        # Initializing a BERT bert-base-uncased style configuration
-        self.config = BertConfig(vocab_size=44263, pad_token_id=1, num_attention_heads=num_attention_heads, num_hidden_layers=num_hidden_layers, max_position_embeddings=max_position_embeddings, hidden_size=hidden_size)
+        # TODO: find better way to get this information
+        uses_transformer_pooler = (pooler_type == "mean_pooler")
 
-        # Initializing a model (with random weights) from the bert-base-uncased style configuration
-        self.transformer = BertModel(self.config)
-        self.transformer.embeddings.position_embeddings.weight.data = torch.zeros((self.config.max_position_embeddings, self.config.hidden_size))
-        self.transformer.embeddings.position_embeddings.requires_grad_ = False
-        
-        with open('/p/scratch/hai_oneprot/go_emb_vals.npy', 'rb') as f:
-            go_emb_vals = np.load(f)
-        
-        #self.transformer.embeddings.word_embeddings.weight.data  = torch.FloatTensor(go_emb_vals)
-        
+        if transformers is None:
+            raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
+        if config is None:
+            self.config = AutoConfig.from_pretrained(model_name_or_path)
+            create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
+                AutoModel.from_config, self.config)
+            self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+        else:
+            self.config = config
+            self.transformer = AutoModel.from_config(config)
+      
+        self.transformer.eval()
+        for param in self.transformer.parameters():
+            param.requires_grad = False
+
+        #self.transformer.gradient_checkpointing_enable()
+
         self.pooler = _POOLERS[pooler_type]()
-        
-        d_model = hidden_size
+
+        d_model = getattr(self.config, "hidden_size")
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
         elif proj == 'linear':
             self.proj = nn.Linear(d_model, output_dim, bias=False)
-        elif proj == 'mlp':
-            hidden_size = (d_model + output_dim) // 2
-            self.proj = nn.Sequential(
-                nn.Linear(d_model, hidden_size, bias=False),
-                nn.GELU(),
-                #nn.Dropout(p=0.5),
-                nn.Linear(hidden_size, output_dim, bias=False),
-            )
+        
         if use_logit_scale:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 
@@ -145,6 +148,7 @@ class GoModel(nn.Module):
         else:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 
+                            LearnableLogitScaling(learnable=False)
                     )
 
     def forward(self, x: TensorType):
@@ -154,6 +158,11 @@ class GoModel(nn.Module):
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 
         return normed
+
+
+    @torch.jit.ignore
+    def set_grad_checkpointing(self, enable=True):
+        self.transformer.gradient_checkpointing_enable()
 
     def init_parameters(self):
         pass
