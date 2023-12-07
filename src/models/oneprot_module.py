@@ -7,8 +7,6 @@ from torch import nn
 #from pytorch_metric_learning import losses
 from src.models.components.loss import ClipLoss, SigLipLoss
 from src.models.components.retrieval_metric import RetrievalMetric
-
-
 from collections import Counter
 import numpy as np
 import torch.nn.functional as F
@@ -19,7 +17,7 @@ class ONEPROTLitModule(LightningModule):
 
     def __init__(
         self,
-        oneprot: torch.nn.ModuleDict,
+        network: torch.nn.ModuleDict,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler = None,
         loss_fn: str = 'CLIP',
@@ -40,9 +38,9 @@ class ONEPROTLitModule(LightningModule):
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
         
-        self.oneprot = oneprot
+        self.oneprot = network
         
-        self.data_modalities = [key for key in oneprot.keys() if key != 'sequence']
+        self.data_modalities = [key for key in self.oneprot.keys() if key != 'sequence']
         
         self.validation_step_outputs = []
         self.test_step_outputs = []
@@ -180,7 +178,7 @@ class ONEPROTLitModule(LightningModule):
             metric_results = self.metrics["test_"+modality].compute()
             for vals in metric_results:
                 self.log(f"test/{modality}/{vals}", metric_results[vals], sync_dist=True, prog_bar=True)
-            self.metrics["test_"+modality].rest()
+            self.metrics["test_"+modality].reset()
         
         self.log("test/loss", loss, sync_dist=True, prog_bar=True)
         
