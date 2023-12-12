@@ -12,6 +12,18 @@
 
 </div>
 
+## Getting started with Judoor
+
+- If you do not have an account on JUDOOR, our portal, please register: https://judoor.fz-juelich.de/register
+- Video instructions: https://drive.google.com/file/d/1-DfiNBP4Gta0av4lQmubkXIXzr2FW4a-/view
+- Join our project  https://judoor.fz-juelich.de/projects/join/hai_oneprot
+- Sign the usage agreements as shown on the video https://drive.google.com/file/d/1mEN1GmWyGFp75uMIi4d6Tpek2NC_X8eY/view
+
+## Getting started with WandB
+
+- Sign up https://wandb.ai/site
+- Join the project https://wandb.ai/oneprot?invited=&newUser=false (or send your username to Erinc)
+
 ## Description
 
 This project is dedicated to advancing the understanding and application of various modalities related to proteins, starting with sequence, structure and multiple sequence alignments (MSA). We will add more modalities along the way such as GO, Text, Gene, PPI, MD and more. 
