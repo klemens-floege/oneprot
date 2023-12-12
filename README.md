@@ -24,6 +24,10 @@
 - Sign up https://wandb.ai/site
 - Join the project https://wandb.ai/oneprot?invited=&newUser=false (or send your username to Erinc)
 
+## Getting started with Lightning and Hydra
+- https://lightning.ai/docs/pytorch/stable/tutorials.html lightning tutorial
+- https://hydra.cc/docs/tutorials/intro/ hydra tutorial
+
 ## Description
 
 This project is dedicated to advancing the understanding and application of various modalities related to proteins, starting with sequence, structure and multiple sequence alignments (MSA). We will add more modalities along the way such as GO, Text, Gene, PPI, MD and more. 
