@@ -1,0 +1,16 @@
+network:
+  _target_: torch.nn.ModuleDict
+  modules:
+    sequence: 
+      _target_: src.models.components.sequence.SequenceModel
+      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
+      pooler_type: mean_pooler
+      output_dim: 512
+      proj: linear
+      use_logit_scale: False
+    msa: 
+      _target_: src.models.components.msa.MsaModel
+      pooler_type: cls_pooler
+      proj: linear
+      output_dim: ${model.network.modules.sequence.output_dim}
+      use_logit_scale: False

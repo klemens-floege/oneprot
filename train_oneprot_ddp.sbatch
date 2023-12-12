@@ -6,7 +6,7 @@
 #SBATCH --time 08:00:00
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node 4
-#SBATCH --nodes 4
+#SBATCH --nodes 2
 #SBATCH --partition booster
 #SBATCH --gres gpu:4
 
@@ -46,7 +46,6 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 
 #export PYTHONPATH=""
 echo "-------- Inside of the container ------------"
-srun --cpu-bind=none bash -c '
- export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1;
- apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp
-'
+#srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp'
+
+srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c "source /p/project/hai_oneprot/merdivan1/sc_venv_template/venv/bin/activate && python src/train.py experiment=train_ddp"'
