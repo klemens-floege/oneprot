@@ -3,11 +3,11 @@
 #SBATCH --account hai_oneprot
 #SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_out.out
 #SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_err.out
-#SBATCH --time 08:00:00
+#SBATCH --time 00:15:00
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node 4
-#SBATCH --nodes 2
-#SBATCH --partition booster
+#SBATCH --nodes 1
+#SBATCH --partition develbooster
 #SBATCH --gres gpu:4
 
 
