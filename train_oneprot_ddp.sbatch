@@ -38,10 +38,11 @@ echo "-------- Inside of the container ------------"
 
 ##################################################################################
 
-#The below script runs a job using the container only
+# The below script runs a job using the container only
+# The hydra setup will use the file train_ddp.yaml, as specified by the comment below; check the hydra documentation to see other option of specifying hydra parameters
 
 #srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp'
 
-#The below script activates a virtual environment within the container
+# The below script activates a virtual environment within the container
 
 srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c "source /p/project/hai_oneprot/merdivan1/sc_venv_template/venv/bin/activate && python src/train.py experiment=train_ddp"'
