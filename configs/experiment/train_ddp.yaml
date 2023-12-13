@@ -7,7 +7,7 @@ defaults:
   - override /data: oneprot.yaml
   - override /model: oneprot.yaml
   - override /callbacks: default.yaml
-  - override /logger: tensorboard.yaml
+  - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
