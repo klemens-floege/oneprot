@@ -27,7 +27,7 @@
 - `sbatch train_oneprot_ddp.sbatch` from the terminal
 - Look at `train_oneprot_ddp.sbatch` for comments on the SLURM parameters
 - After you run the job the logs will be under `/p/project/hai_oneprot/your_username/oneprot/logs/`. For training runs under `train` and for evaluation under `eval` with the submission date and time.
-Inside the this folder you can see the logger outputs.
+Inside the this folder you can see the configs, logger outputs and checkpoints.
 
 ## Getting started with WandB
 
