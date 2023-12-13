@@ -1,14 +1,14 @@
 #!/bin/bash -x
 
-#SBATCH --account hai_oneprot
-#SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_out.out
-#SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_err.out
-#SBATCH --time 00:15:00
-#SBATCH --cpus-per-task=24
-#SBATCH --ntasks-per-node 4
-#SBATCH --nodes 1
-#SBATCH --partition develbooster
-#SBATCH --gres gpu:4
+#SBATCH --account hai_oneprot                                                      # specify the account name, otherwise the job will not run
+#SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_out.out  # specify the file for the slurm output; make sure to change it to your folder
+#SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/train_%j_err.out   # specify the file for the slurm error message; make sure to change it to your folder
+#SBATCH --time 00:15:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
+#SBATCH --cpus-per-task=24                                                         # do not change
+#SBATCH --ntasks-per-node 4                                                        # number of tasks per node; each node has 4 GPUs
+#SBATCH --nodes 1                                                                  # the number of nodes; if you request 4 nodes you get 16 GPUs
+#SBATCH --partition develbooster                                                   # the walltime on develbooster is 2 hours, on booster 24 hours; maximum number of nodes on develbooster is 4 nodes
+#SBATCH --gres gpu:4                                                               # do not change
 
 
 #echo 'SLURM JOB ID'
