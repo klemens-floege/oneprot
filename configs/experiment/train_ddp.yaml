@@ -20,7 +20,7 @@ tags: ["oneprot", "facebook/esm2_t36_3B_UR50D"]
 
 seed: 12345
 
-# overriding certain classes; you can also override other classes (e.g. model, callback etc.)
+# overriding certain classes; you can also override other classes (e.g. model, callbacks etc.)
 
 trainer:
   min_epochs: 1
