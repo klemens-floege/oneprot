@@ -30,4 +30,4 @@ trainer:
 data:
   data_modalities: ['structure']
   sequence_tokenizer: "facebook/esm2_t33_650M_UR50D"
-  batch_size: 128
+  batch_size: 64
