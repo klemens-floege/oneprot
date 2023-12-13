@@ -19,9 +19,9 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 100
+  max_epochs: 10
   #max_steps: 10
-  num_nodes: 4
+  num_nodes: 1
   #precision: 16
   #gradient_clip_val: 1.0
   num_sanity_val_steps: -1
