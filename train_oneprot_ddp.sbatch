@@ -11,12 +11,7 @@
 #SBATCH --gres gpu:4                                                               # do not change
 
 
-#echo 'SLURM JOB ID'
-#echo $SLURM_JOB_ID
-#echo 'Loading bashrc'
-#source $HOME/.bashrc
-#echo 'Starting training'
-
+######################## DO NOT CHANGE THE BELOW ################################
 
 export SRUN_CPUS_PER_TASK="$SLURM_CPUS_PER_TASK"
 
@@ -34,18 +29,17 @@ MASTER_ADDR="$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)"
 export MASTER_ADDR="${MASTER_ADDR}i"
 
 
-
-#source /p/project/hai_oneprot/merdivan1/sc_venv_template/activate.sh
-#ml shpc
-#ml nvcr.io/nvidia/pytorch/23.07-py3/module
-#HYDRA_FULL_ERROR=1 srun python -u src/train.py experiment=example_collate_ddp
-
 module purge
 module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 #module load Apptainer-Tools
 
-#export PYTHONPATH=""
+
 echo "-------- Inside of the container ------------"
+
+##################################################################################
+
+#The below script runs a job using the container only
+
 #srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp'
 
 srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c "source /p/project/hai_oneprot/merdivan1/sc_venv_template/venv/bin/activate && python src/train.py experiment=train_ddp"'
