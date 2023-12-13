@@ -1,8 +1,11 @@
 # @package _global_
 
 # to execute this experiment run:
-# python train.py experiment=example
+# python train.py experiment=train_ddp; it will collect the parameters from the default files specified below, 
+# and override certain parameters as shown below for trainer and data classes
 
+#default files used to set up the parameters; you can change the .yaml file if you want to use another file as default;
+# e.g. if you want to use tensorboard instaed of wandb as a logger, please change the line 13 to tensorboard.yaml
 defaults:
   - override /data: oneprot.yaml
   - override /model: oneprot.yaml
@@ -16,6 +19,8 @@ defaults:
 tags: ["oneprot", "facebook/esm2_t36_3B_UR50D"]
 
 seed: 12345
+
+# overriding certain classes; you can also override other classes (e.g. model, callback etc.)
 
 trainer:
   min_epochs: 1
