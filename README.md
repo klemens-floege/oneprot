@@ -18,6 +18,7 @@
 - Video instructions: https://drive.google.com/file/d/1-DfiNBP4Gta0av4lQmubkXIXzr2FW4a-/view
 - Join our project  https://judoor.fz-juelich.de/projects/join/hai_oneprot
 - Sign the usage agreements as shown on the video https://drive.google.com/file/d/1mEN1GmWyGFp75uMIi4d6Tpek2NC_X8eY/view
+- To set up `ssh` you can follow instructions from these slides https://helmholtzai-fzj.github.io/2023-getting-started-with-ai-on-supercomputers/01-access-machines.html#/29
 - Once you connect to juwels-booster the project folder is `/p/project/hai_oneprot` (or `$PROJECT_hai_oneprot`). You need to create a folder with your judoor username and can clone the repo there.
 - The folder `/p/scratch/hai_oneprot/` contains the data and pretrained model. If you want to add any new pretrained model/data you should add it there.
 - If you are creating a new folder within `/p/scratch/hai_oneprot/`, don't forget to give permissions with `chmod -R u+rwX,g+rwX /path/to/your/folder` 
