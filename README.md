@@ -34,6 +34,10 @@ Inside the this folder you can see the configs, logger outputs and checkpoints.
 
 - Sign up https://wandb.ai/site
 - Join the project https://wandb.ai/oneprot?invited=&newUser=false (or send your username to Erinc)
+- In order to push your runs to WandB, please first activate the environment inside the container:
+`apptainer run /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif`
+`source /p/project/hai_oneprot/merdivan1/sc_venv_template`
+- Then run `wandb sync --include-offline -e oneprot logs/train/runs/name_of_your_run/wandb/offline-*`
 
 ## Getting started with Lightning and Hydra
 - https://lightning.ai/docs/pytorch/stable/tutorials.html lightning tutorial
