@@ -41,6 +41,7 @@ Inside the this folder you can see the configs, logger outputs and checkpoints.
 `source /p/project/hai_oneprot/merdivan1/sc_venv_template/activate.sh`
 - Then run `wandb sync --include-offline -e oneprot logs/train/runs/name_of_your_run/wandb/offline-*`
 - You will be asked to enter your API key which you will find here https://wandb.ai/authorize
+- NOTE: for saving checkpoints in the file `/p/project/hai_oneprot/bazarova1/oneprot/configs/experiment/train_ddp.yaml` replace logger wandb by many loggers (in order to log both with wandb and tensorboard)
 
 ## Getting started with Lightning and Hydra
 - https://lightning.ai/docs/pytorch/stable/tutorials.html lightning tutorial
