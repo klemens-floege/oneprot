@@ -11,6 +11,8 @@ defaults:
   - override /model: oneprot.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
+ #use below instead of wandb to log both with tensorboard (for checkpoints) and wandb
+ #- override /logger: many_loggers.yaml
   - override /trainer: ddp.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
