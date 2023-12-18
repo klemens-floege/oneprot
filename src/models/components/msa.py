@@ -94,6 +94,16 @@ class MsaModel(nn.Module):
             self.proj = nn.Identity()
         elif proj == 'linear':
             self.proj = nn.Linear(d_model, output_dim, bias=False)
+        elif proj == 'mlp':
+            hidden_size = (d_model + output_dim) // 2
+            self.proj = nn.Sequential(
+                nn.Linear(d_model, hidden_size, bias=False),
+                nn.GELU(),
+                #nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, output_dim, bias=False),
+            )
+        
+        
         if use_logit_scale:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 

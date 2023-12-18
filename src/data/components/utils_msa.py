@@ -82,6 +82,7 @@ def filter_and_create_msa_file_list(file_path):
     
     with open(file_path, 'r') as file:
         for line in file:
+            line = line.strip()
             if ".a3m" in line:
                 file_list.append(line.split(',')[1])             
     

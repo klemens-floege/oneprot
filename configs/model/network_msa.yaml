@@ -11,6 +11,6 @@ network:
     msa: 
       _target_: src.models.components.msa.MsaModel
       pooler_type: cls_pooler
-      proj: linear
+      proj: mlp
       output_dim: ${model.network.modules.sequence.output_dim}
       use_logit_scale: False
