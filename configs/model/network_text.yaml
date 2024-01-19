@@ -8,9 +8,10 @@ network:
       output_dim: 1024
       proj: linear
       use_logit_scale: False
-    msa: 
-      _target_: src.models.components.msa.MsaModel
-      pooler_type: mean_pooler
-      proj: mlp
+    text: 
+      _target_: src.models.components.text.TextModel
+      model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t12_35M_UR50D"
       output_dim: ${model.network.modules.sequence.output_dim}
+      pooler_type: cls_pooler
+      proj: linear
       use_logit_scale: False

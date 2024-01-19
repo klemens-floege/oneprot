@@ -116,12 +116,8 @@ class TextModel(nn.Module):
             self.config = AutoConfig.from_pretrained(model_name_or_path)
             create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
                 AutoModel.from_config, self.config)
-            # TODO: do all model configs have this attribute? PretrainedConfig does so yes??
-            if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:
-                self.transformer = create_func(model_args)
-                self.transformer = self.transformer.encoder
-            else:
-                self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+
+            self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
         else:
             self.config = config
             self.transformer = AutoModel.from_config(config)
@@ -140,6 +136,16 @@ class TextModel(nn.Module):
         elif proj == 'linear':
             self.proj = nn.Linear(d_model, output_dim, bias=False)
        
+        elif proj == 'mlp':
+            hidden_size = (d_model + output_dim) // 2
+            self.proj = nn.Sequential(
+                nn.Linear(d_model, hidden_size, bias=False),
+                nn.GELU(),
+                #nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, output_dim, bias=False),
+            )
+
+
         if use_logit_scale:
             self.norm = nn.Sequential(
                             Normalize(dim=-1), 

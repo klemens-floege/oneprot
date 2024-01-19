@@ -12,7 +12,7 @@ import h5py
 import pandas as pd
 
 class MSADataset(Dataset):
-    def __init__(self, data_dir="/p/scratch/hai_oneprot/openfoldh5s/", split='train', max_length=1024, msa_depth=50, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
+    def __init__(self, data_dir="/p/scratch/hai_oneprot/openfoldh5s/", split='train', max_length=1024, msa_depth=100, sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
         
         filename = f"{data_dir}{split}_MSA_clean.txt"
         self.msa_files = filter_and_create_msa_file_list(filename)
@@ -25,6 +25,7 @@ class MSADataset(Dataset):
          # can change this to pass more/fewer sequences
  
     def __len__(self):
+        #return 2000
         return len(self.msa_files)
        
     def __getitem__(self, idx):
@@ -79,14 +80,16 @@ class StructureDataset(Dataset):
         self.id_list = []
         self.split = split
         self.h5_file =  f'{data_dir}merged.h5'
-        with open(f'{data_dir}{split}.txt', 'r') as file:
+        with open(f'{data_dir}{split}_clean_750k.txt', 'r') as file:
 
             for line in file:
-                self.id_list.append(line.split(',')[0])  
+                self.id_list.append(line.split(',')[0].strip())  
 
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
     def __len__(self):
         return len(self.id_list)
+        #return 2000
+        
     def __getitem__(self, idx):
               
         with h5py.File(self.h5_file, 'r') as file:
@@ -118,31 +121,49 @@ def structure_collate_fn(data):
     return sequence_input.long(), Batch.from_data_list(structures)
 
 
-
-
-'''
 class TextDataset(Dataset):
-    def __init__(self, text_filepath="/p/scratch/hai_oneprot/func_data_dict.pkl", text_tokenizer="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
-        
-        
-        with open(text_filepath, 'rb') as file:
-            self.loaded_dict = pickle.load(file)
-        self.ids = list(self.loaded_dict.keys())
-         # can change this to pass more/fewer sequences
+    def __init__(self, data_dir = '/p/scratch/hai_oneprot/openfoldh5s/' , split="train", text_tokenizer="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext", sequence_tokenizer="facebook/esm2_t33_650M_UR50D"):
+      
+        self.uniprot_text = {}
+        self.uniprot_protein = {}
+
+        with open(f'{data_dir}text_{split}.txt', 'r') as file:
+            
+            self.id_list = file.read().splitlines()
+
+        with open(f'{data_dir}text_sequence.txt', 'r') as file:
+            
+            lines = file.read().splitlines()
+
+        # Iterate over the lines two by two (ID, description)
+        for i in range(0, len(lines), 2):
+            if i+1 < len(lines):
+                self.uniprot_text[lines[i]] = lines[i+1]
+
+        with open(f'{data_dir}protein_sequence.txt', 'r') as file:
+            
+            lines = file.read().splitlines()
+
+        # Iterate over the lines two by two (ID, description)
+        for i in range(0, len(lines), 2):
+            if i+1 < len(lines):
+                self.uniprot_protein[lines[i]] = lines[i+1]
+
+
         self.text_tokenizer = AutoTokenizer.from_pretrained(text_tokenizer)
         self.sequence_tokenizer = AutoTokenizer.from_pretrained(sequence_tokenizer)
        
  
     def __len__(self):
-        #return len(self.ids)
-        return 10000
+        return len(self.id_list)
+        #return 1000
 
     def __getitem__(self, idx):
         
-        sequence = self.loaded_dict[self.ids[idx]]['sequence']
-        text = self.loaded_dict[self.ids[idx]]['function']
+        sequence = self.uniprot_protein[self.id_list[idx]]
+        text = self.uniprot_text[self.id_list[idx]]
+
         text_input = self.text_tokenizer(text, max_length=512, padding=True, truncation=True, return_tensors="pt").input_ids
-        #print(f"Shape of function tokens = {function_tokens['input_ids'].shape}")
         sequence_input = self.sequence_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids 
   
         return torch.squeeze(sequence_input), torch.squeeze(text_input)
@@ -161,10 +182,12 @@ def text_collate_fn(data):
     for sequence in sequences:
         if sequence.shape[0]>max_length:
             max_length = sequence.shape[0]
+
     sequence_input = torch.ones((len(sequences), max_length))
     for idx, sequence in enumerate(sequences):
+      
         sequence_input[idx,:sequence.shape[0]] = sequence
-
+    
     max_length = 0
     for text in texts:
         if text.shape[0]>max_length:
@@ -177,7 +200,7 @@ def text_collate_fn(data):
 
     return sequence_input.long(), text_input.long()
 
-
+'''
 
 
 class GODataset(Dataset):

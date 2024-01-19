@@ -118,8 +118,9 @@ class MsaModel(nn.Module):
     def forward(self, x: TensorType):
 
         out = self.transformer(tokens=x, repr_layers=[12])
+        attn_mask = (x != self.transformer.padding_idx).long()
         out = out['representations'][12][:,0,:,:]
-        attn_mask = (out != self.transformer.padding_idx).long()
+        attn_mask = attn_mask[:,0,:]
         pooled_out = self.pooler(out, attn_mask)
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 

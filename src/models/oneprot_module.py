@@ -81,8 +81,9 @@ class ONEPROTLitModule(LightningModule):
 
         if modality=='msa':
             modality_output_temp = []
-            for i in range(modality_inputs.shape[0]):
-                modality_output = self.oneprot[modality](torch.unsqueeze(modality_inputs[i,...],0))
+            for i in range(0, modality_inputs.shape[0], 4):
+                #modality_output = self.oneprot[modality](torch.unsqueeze(modality_inputs[i,...],0))
+                modality_output = self.oneprot[modality](modality_inputs[i:i+4,...])
                 modality_output_temp.extend(modality_output)
             modality_outputs = torch.stack(modality_output_temp)
         else:
@@ -109,8 +110,8 @@ class ONEPROTLitModule(LightningModule):
         :param batch_idx: The index of the current batch.
         :return: A tensor of losses between model predictions and targets.
         """
-        #opt = self.optimizers()    
-        opt = self.hparams.optimizer(params=self.trainer.model.parameters())
+        opt = self.optimizers()    
+        #opt = self.hparams.optimizer(params=self.trainer.model.parameters())
         
         for modality in list(batch.keys()):     
             
@@ -120,7 +121,7 @@ class ONEPROTLitModule(LightningModule):
             loss = self.loss_fn(sequence_features, modality_features)
             self.train_loss(loss)
             self.manual_backward(loss)
-            self.clip_gradients(opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
+            self.clip_gradients(opt, gradient_clip_val=1.0, gradient_clip_algorithm="norm")
             opt.step()
             self.log(f"train/loss", self.train_loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
             

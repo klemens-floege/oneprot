@@ -113,7 +113,7 @@ class SequenceModel(nn.Module):
         self.output_dim = output_dim
 
         # TODO: find better way to get this information
-        uses_transformer_pooler = (pooler_type == "mean_pooler")
+        uses_transformer_pooler = (pooler_type == "cls_pooler")
 
         if transformers is None:
             raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")

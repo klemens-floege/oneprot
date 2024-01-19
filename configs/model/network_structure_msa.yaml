@@ -5,7 +5,7 @@ network:
       _target_: src.models.components.sequence.SequenceModel
       model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
       pooler_type: mean_pooler
-      output_dim: 50
+      output_dim: 1024
       proj: linear
       use_logit_scale: False
     structure: 
@@ -14,9 +14,15 @@ network:
         _target_: dig.threedgraph.method.ProNet
         level: allatom
         out_channels: ${model.network.modules.sequence.output_dim}
-        euler_noise: False
-        data_augment_eachlayer: False 
-        dropout: 0.
+        euler_noise: True
+        data_augment_eachlayer: True 
+        dropout: 0.25
       output_dim: ${model.network.modules.sequence.output_dim}
       proj: linear
+      use_logit_scale: False
+    msa: 
+      _target_: src.models.components.msa.MsaModel
+      pooler_type: mean_pooler
+      proj: mlp
+      output_dim: ${model.network.modules.sequence.output_dim}
       use_logit_scale: False
