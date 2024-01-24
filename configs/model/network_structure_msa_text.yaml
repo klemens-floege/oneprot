@@ -8,7 +8,7 @@ network:
       output_dim: 1024
       proj: linear
       use_logit_scale: False
-    structure: 
+    struct: 
       _target_: src.models.components.structure.StructureModel
       encoder:
         _target_: dig.threedgraph.method.ProNet

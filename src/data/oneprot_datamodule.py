@@ -4,9 +4,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
 import os
-from src.data.components.datasets import MSADataset, StructureDataset, TextDataset
-from src.data.components.datasets import structure_collate_fn,  msa_collate_fn, text_collate_fn
-
+from src.data.components.datasets import MSADataset, StructDataset
 
 class ONEPROTDataModule(LightningDataModule):
     """Example of LightningDataModule for ONEPROT dataset.
@@ -37,13 +35,14 @@ class ONEPROTDataModule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "/p/scratch/hai_oneprot/openfoldh5s/",
+        data_dir: str = "/p/scratch/hai_oneprot/openfoldh5s",
         data_modalities: list = ['sequence','structure'],
         text_tokenizer: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
-        sequence_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
-        train_val_test_split: Tuple[float, float, float] = (0.9, 0.05, 0.05),
+        seq_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
+        use_struct_mask: bool = False, 
+        use_struct_coord_noise: bool = False, 
+        use_struct_deform: bool =False,
         batch_size: int = 64,
-        num_workers: int = 0,
         pin_memory: bool = False,
     ):
         super().__init__()
@@ -55,7 +54,7 @@ class ONEPROTDataModule(LightningDataModule):
         self.save_hyperparameters(logger=False)
         self.data_modalities = data_modalities
         self.data_dir = data_dir
-        self.sequence_tokenizer = sequence_tokenizer
+        self.seq_tokenizer = seq_tokenizer
         self.text_tokenizer = text_tokenizer
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
@@ -75,26 +74,25 @@ class ONEPROTDataModule(LightningDataModule):
             self.datasets_collate_fn = {}
             for modality in self.data_modalities:
                 
-                if modality == 'structure':
-                    self.datasets["structure_train"] =  StructureDataset(data_dir =self.data_dir, split='train', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets["structure_val"] =  StructureDataset(data_dir =self.data_dir, split='validation', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets["structure_test"] =  StructureDataset(data_dir =self.data_dir, split='test', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets_collate_fn[modality] = structure_collate_fn
-
+                if modality == 'struct':
+                    self.datasets["struct_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform )
+                    self.datasets["struct_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
+                    self.datasets["struct_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                  
                     
                 elif modality == 'msa':
-                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', sequence_tokenizer=self.sequence_tokenizer)
-                    self.datasets_collate_fn[modality] = msa_collate_fn
+                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer)
+                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
+                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                  
 
-                
+                '''
                 elif modality == 'text':
-                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', sequence_tokenizer=self.sequence_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', sequence_tokenizer=self.sequence_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', sequence_tokenizer=self.sequence_tokenizer, text_tokenizer=self.text_tokenizer)
+                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
+                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
+                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
                     self.datasets_collate_fn[modality] = text_collate_fn
-
+                '''
                 print(f"{modality} Train/Validation/Test Dataset Size = {len(self.datasets[f'{modality}_train'])} / {len(self.datasets[f'{modality}_val'])} / {len(self.datasets[f'{modality}_test'])}")
                 
     def train_dataloader(self):
@@ -105,9 +103,9 @@ class ONEPROTDataModule(LightningDataModule):
             iterables[modality] = DataLoader(
                         dataset=self.datasets[f"{modality}_train"],
                         batch_size=self.hparams.batch_size,
-                        num_workers=self.hparams.num_workers,
+                        num_workers=self.num_workers,
                         pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets_collate_fn[modality],
+                        collate_fn=self.datasets[f"{modality}_train"].collate_fn,
                         shuffle=True,
                         drop_last=True,
                     )
@@ -122,9 +120,9 @@ class ONEPROTDataModule(LightningDataModule):
             iterables[modality] = DataLoader(
                         dataset=self.datasets[f"{modality}_val"],
                         batch_size=self.hparams.batch_size,
-                        num_workers=self.hparams.num_workers,
+                        num_workers=self.num_workers,
                         pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets_collate_fn[modality],
+                        collate_fn=self.datasets[f"{modality}_val"].collate_fn,
                         drop_last=True,
                         shuffle=False,
                     )
@@ -139,9 +137,9 @@ class ONEPROTDataModule(LightningDataModule):
             iterables[modality] = DataLoader(
                         dataset=self.datasets[f"{modality}_test"],
                         batch_size=self.hparams.batch_size,
-                        num_workers=self.hparams.num_workers,
+                        num_workers=self.num_workers,
                         pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets_collate_fn[modality],
+                        collate_fn=self.datasets[f"{modality}_test"].collate_fn,
                         drop_last=True,
                         shuffle=False,
                     )

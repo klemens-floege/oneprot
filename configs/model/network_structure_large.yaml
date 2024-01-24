@@ -12,17 +12,18 @@ network:
       _target_: src.models.components.structure.StructureModel
       encoder:
         _target_: dig.threedgraph.method.ProNet
-        level: allatom
+        level: backbone
+        hidden_channels: 512
+        mid_emb: 256
+        num_radial: 12
+        num_spherical: 4
+        int_emb_layers: 6
+        out_layers: 4
+        num_pos_emb: 32
         out_channels: ${model.network.modules.sequence.output_dim}
         euler_noise: True
         data_augment_eachlayer: True 
         dropout: 0.25
       output_dim: ${model.network.modules.sequence.output_dim}
       proj: linear
-      use_logit_scale: False
-    msa: 
-      _target_: src.models.components.msa.MsaModel
-      pooler_type: mean_pooler
-      proj: mlp
-      output_dim: ${model.network.modules.sequence.output_dim}
       use_logit_scale: False

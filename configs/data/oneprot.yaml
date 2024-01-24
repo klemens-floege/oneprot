@@ -1,9 +1,10 @@
 _target_: src.data.oneprot_datamodule.ONEPROTDataModule
-data_dir: "/p/scratch/hai_oneprot/openfoldh5s/"
+data_dir: "/p/scratch/hai_oneprot/openfoldh5s"
 batch_size: 8
-train_val_test_split: [0.9, 0.05, 0.05]
-num_workers: 8
-sequence_tokenizer: facebook/esm2_t12_35M_UR50D #"facebook/esm2_t33_650M_UR50D"
+seq_tokenizer: facebook/esm2_t12_35M_UR50D #"facebook/esm2_t33_650M_UR50D"
 text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t33_650M_UR50D"
+use_struct_mask: True
+use_struct_coord_noise: True
+use_struct_deform: True
 data_modalities: ['structure']
 pin_memory: False

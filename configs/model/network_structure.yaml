@@ -3,16 +3,16 @@ network:
   modules:
     sequence: 
       _target_: src.models.components.sequence.SequenceModel
-      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
+      model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D" facebook/esm2_t33_650M_UR50D
       pooler_type: mean_pooler
       output_dim: 1024
       proj: linear
       use_logit_scale: False
-    structure: 
+    struct: 
       _target_: src.models.components.structure.StructureModel
       encoder:
         _target_: dig.threedgraph.method.ProNet
-        level: allatom
+        level: backbone
         out_channels: ${model.network.modules.sequence.output_dim}
         euler_noise: True
         data_augment_eachlayer: True 
