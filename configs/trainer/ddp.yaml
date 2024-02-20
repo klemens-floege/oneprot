@@ -1,7 +1,6 @@
 defaults:
   - default.yaml
 
-strategy: ddp_find_unused_parameters_true
 
 accelerator: gpu
 devices: 4

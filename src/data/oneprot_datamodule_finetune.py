@@ -4,9 +4,9 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
 import os
-from src.data.components.datasets import MSADataset, StructDataset, TextDataset
+from src.data.components.datasets import DesignDataset
 
-class ONEPROTDataModule(LightningDataModule):
+class ONEPROTFinetuneDataModule(LightningDataModule):
     """Example of LightningDataModule for ONEPROT dataset.
 
     A DataModule implements 6 key methods:
@@ -39,7 +39,6 @@ class ONEPROTDataModule(LightningDataModule):
         data_modalities: list = ['sequence','structure'],
         text_tokenizer: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
         seq_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
-        use_struct_mask: bool = False, 
         use_struct_coord_noise: bool = False, 
         use_struct_deform: bool =False,
         batch_size: int = 64,
@@ -74,24 +73,12 @@ class ONEPROTDataModule(LightningDataModule):
             self.datasets_collate_fn = {}
             for modality in self.data_modalities:
                 
-                if modality == 'struct':
-                    self.datasets["struct_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform )
-                    self.datasets["struct_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["struct_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                if modality == 'design':
+                    self.datasets["design_train"] =  DesignDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform )
+                    self.datasets["design_val"] =  DesignDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
+                    self.datasets["design_test"] =  DesignDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
                   
                     
-                elif modality == 'msa':
-                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
-                  
-
-                
-                elif modality == 'text':
-                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
-                
                 print(f"{modality} Train/Validation/Test Dataset Size = {len(self.datasets[f'{modality}_train'])} / {len(self.datasets[f'{modality}_val'])} / {len(self.datasets[f'{modality}_test'])}")
                 
     def train_dataloader(self):
@@ -105,7 +92,7 @@ class ONEPROTDataModule(LightningDataModule):
                         num_workers=self.num_workers,
                         pin_memory=self.hparams.pin_memory,
                         collate_fn=self.datasets[f"{modality}_train"].collate_fn,
-                        shuffle=True,
+                        shuffle=False,
                         drop_last=True,
                     )
 

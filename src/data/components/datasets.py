@@ -122,18 +122,157 @@ class StructDataset(Dataset):
        
         return sequence_input.long(), batch_struct
 
-'''
+class DesignDataset(Dataset):
+
+    def __init__(self, data_dir = '/p/scratch/hai_oneprot/openfoldh5s', split="train", seq_tokenizer="facebook/esm2_t33_650M_UR50D",  use_struct_coord_noise=False, use_struct_deform=False):
+         
+        
+        self.id_list = []
+        self.split = split
+        self.h5_file =  f'{data_dir}/merged.h5'
+        self.use_struct_coord_noise = use_struct_coord_noise
+        self.use_struct_deform = use_struct_deform
+        #with open(f'{data_dir}/{split}_struct.txt', 'r') as file:
+        with open(f'{data_dir}/{split}_struct_random.txt', 'r') as file:
+            for line in file:
+                self.id_list.append(line.split(',')[0].strip())  
+        #self.id_list = self.id_list[:10000]
+        self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
+    def __len__(self):
+        return len(self.id_list)
+        #return 2000
+        
+    def __getitem__(self, idx):
+               
+        return idx
+
+    def collate_fn(self, data):
+        """
+        data: is a list of tuples with (example, label, length)
+                where 'example' is a tensor of arbitrary shape
+                and label/length are scalars
+        """
+        
+        
+        seq_ids = data
+        
+        inputs = {}
+        inputs['instruction'] = ["For given backbone provide the aminoacid sequence "] * len(seq_ids)   
+        structures = []
+        reponses = []
+        sequences = []
+        for i in range(len(seq_ids)):
+            with h5py.File(self.h5_file, 'r') as file:
+                sequence = file[self.id_list[seq_ids[i]]]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
+                reponses.append("Here is the aminoacid sequence [START_AMINO]"+ sequence + "[END_AMINO]")
+                sequences.append(sequence)
+            structures.append(protein_to_graph(self.id_list[seq_ids[i]], self.h5_file, 'non_pdb' , 'A'))
+        
+        inputs['response'] = reponses
+        
+        batch_struct = Batch.from_data_list(structures)
+        #batch_struct.x[:, 0] = 20
+        
+        if self.use_struct_coord_noise:
+            # add gaussian noise to atom coords
+            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.coords_ca.shape), min=-0.3, max=0.3)
+            batch_struct.coords_ca += gaussian_noise
+            batch_struct.coords_n += gaussian_noise
+            batch_struct.coords_c += gaussian_noise
+        if self.use_struct_deform:
+            # Anisotropic scale
+            deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1)
+            batch_struct.coords_ca *= deform
+            batch_struct.coords_n *= deform
+            batch_struct.coords_c *= deform
+
+        sequence_input = self.seq_tokenizer(sequences, max_length=1024, padding=True, truncation=True, return_tensors="pt").input_ids   
+       
+        inputs['structure'] = batch_struct   
+        #inputs['structure'] = sequence_input.long()
+        return inputs
+
+class DescribeDataset(Dataset):
+
+    def __init__(self, data_dir = '/p/scratch/hai_oneprot/openfoldh5s', split="train", seq_tokenizer="facebook/esm2_t33_650M_UR50D",  use_struct_coord_noise=False, use_struct_deform=False):
+         
+        
+        self.id_list = []
+        self.split = split
+        self.h5_file =  f'{data_dir}/merged.h5'
+        self.use_struct_coord_noise = use_struct_coord_noise
+        self.use_struct_deform = use_struct_deform
+        with open(f'{data_dir}/{split}_struct.txt', 'r') as file:
+
+            for line in file:
+                self.id_list.append(line.split(',')[0].strip())  
+
+        self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
+    def __len__(self):
+        return len(self.id_list)
+        #return 2000
+        
+    def __getitem__(self, idx):
+               
+        return idx
+
+    def collate_fn(self, data):
+        """
+        data: is a list of tuples with (example, label, length)
+                where 'example' is a tensor of arbitrary shape
+                and label/length are scalars
+        """
+        
+        
+        seq_ids = data
+        
+        inputs = {}
+        inputs['instruction'] = ["For given backbone provide the aminoacid sequence [START_AMINO]"] * len(seq_ids)   
+        sequences = []
+        structures = []
+        reponses = []
+        for i in range(len(seq_ids)):
+            with h5py.File(self.h5_file, 'r') as file:
+                sequence = file[self.id_list[seq_ids[i]]]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
+                sequences.append(sequence)
+                reponses.append(sequence + "[END_AMINO]")
+            structures.append(protein_to_graph(self.id_list[seq_ids[i]], self.h5_file, 'non_pdb' , 'A'))
+        
+        inputs['response'] = reponses
+        
+        batch_struct = Batch.from_data_list(structures)
+        batch_struct.x[:, 0] = 20
+        
+        if self.use_struct_coord_noise:
+            # add gaussian noise to atom coords
+            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.coords_ca.shape), min=-0.3, max=0.3)
+            batch_struct.coords_ca += gaussian_noise
+            batch_struct.coords_n += gaussian_noise
+            batch_struct.coords_c += gaussian_noise
+        if self.use_struct_deform:
+            # Anisotropic scale
+            deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1)
+            batch_struct.coords_ca *= deform
+            batch_struct.coords_n *= deform
+            batch_struct.coords_c *= deform
+
+        sequence_input = self.seq_tokenizer(sequences, max_length=1024, padding=True, truncation=True, return_tensors="pt").input_ids   
+        inputs['structure'] = batch_struct   
+        inputs['sequence'] = sequence_input 
+        return inputs
+
+
 class TextDataset(Dataset):
-    def __init__(self, data_dir = '/p/scratch/hai_oneprot/openfoldh5s/' , split="train", text_tokenizer="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext", seq_tokenizer="facebook/esm2_t33_650M_UR50D"):
+    def __init__(self, data_dir = '/p/scratch/hai_oneprot/openfoldh5s' , split="train", text_tokenizer="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext", seq_tokenizer="facebook/esm2_t33_650M_UR50D"):
       
         self.uniprot_text = {}
         self.uniprot_protein = {}
 
-        with open(f'{data_dir}text_{split}.txt', 'r') as file:
+        with open(f'{data_dir}/{split}_text.txt', 'r') as file:
             
             self.id_list = file.read().splitlines()
 
-        with open(f'{data_dir}text_sequence.txt', 'r') as file:
+        with open(f'{data_dir}/text_sequence.txt', 'r') as file:
             
             lines = file.read().splitlines()
 
@@ -142,7 +281,7 @@ class TextDataset(Dataset):
             if i+1 < len(lines):
                 self.uniprot_text[lines[i]] = lines[i+1]
 
-        with open(f'{data_dir}protein_sequence.txt', 'r') as file:
+        with open(f'{data_dir}/protein_sequence.txt', 'r') as file:
             
             lines = file.read().splitlines()
 
@@ -158,53 +297,28 @@ class TextDataset(Dataset):
  
     def __len__(self):
         return len(self.id_list)
-        #return 1000
-
-    def __getitem__(self, idx):
+        #return 2000
         
-        sequence = self.uniprot_protein[self.id_list[idx]]
-        text = self.uniprot_text[self.id_list[idx]]
+    def __getitem__(self, idx):
+               
+        return idx
 
-        text_input = self.text_tokenizer(text, max_length=512, padding=True, truncation=True, return_tensors="pt").input_ids
-        sequence_input = self.seq_tokenizer(sequence, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids 
-  
-        return torch.squeeze(sequence_input), torch.squeeze(text_input)
+    def collate_fn(self, data):
+        
+        seq_ids = data
+        sequences = []
+        texts = []
+        for i in range(len(seq_ids)):
+            sequences.append(self.uniprot_protein[self.id_list[i]])
+            texts.append(self.uniprot_text[self.id_list[i]])
+            
+        sequence_input = self.seq_tokenizer(sequences, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids   
+        text_input = self.text_tokenizer(texts, max_length=512, padding=True, truncation=True, return_tensors="pt").input_ids   
+       
+        return sequence_input.long(), text_input.long()
+ 
 
-
-def text_collate_fn(data):
-    """
-       data: is a list of tuples with (example, label, length)
-             where 'example' is a tensor of arbitrary shape
-             and label/length are scalars
-    """
-
-    sequences, texts = zip(*data)
-
-    max_length = 0
-    for sequence in sequences:
-        if sequence.shape[0]>max_length:
-            max_length = sequence.shape[0]
-
-    sequence_input = torch.ones((len(sequences), max_length))
-    for idx, sequence in enumerate(sequences):
-      
-        sequence_input[idx,:sequence.shape[0]] = sequence
-    
-    max_length = 0
-    for text in texts:
-        if text.shape[0]>max_length:
-            max_length = text.shape[0]
-
-    text_input = torch.ones((len(texts), max_length))
-    for idx, text in enumerate(texts):
-            text_input[idx,:text.shape[0]] = text
-
-
-    return sequence_input.long(), text_input.long()
-
-
-
-
+'''
 class GODataset(Dataset):
     def __init__(self, go_filepath="/p/scratch/hai_oneprot/go_data_dict.pkl", seq_tokenizer="facebook/esm2_t33_650M_UR50D"):
                 
