@@ -157,6 +157,7 @@ class SequenceModel(nn.Module):
         pooled_out = self.pooler(out, attn_mask)
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 
+        #print(normed.shape,"normed shape sequence!!!!!!!!!!!!")
         return normed
 
 

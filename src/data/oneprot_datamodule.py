@@ -4,7 +4,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
 import os
-from src.data.components.datasets import MSADataset, StructDataset, TextDataset
+from src.data.components.datasets import MSADataset, StructDataset, PocketDataset, TextDataset
 
 class ONEPROTDataModule(LightningDataModule):
     """Example of LightningDataModule for ONEPROT dataset.
@@ -36,7 +36,7 @@ class ONEPROTDataModule(LightningDataModule):
     def __init__(
         self,
         data_dir: str = "/p/scratch/hai_oneprot/openfoldh5s",
-        data_modalities: list = ['sequence','structure'],
+        data_modalities: list = ['sequence','structure','pocket'],
         text_tokenizer: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
         seq_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
         use_struct_mask: bool = False, 
@@ -44,6 +44,7 @@ class ONEPROTDataModule(LightningDataModule):
         use_struct_deform: bool =False,
         batch_size: int = 64,
         pin_memory: bool = False,
+        pocket_data_type='h5'
     ):
         super().__init__()
 
@@ -59,6 +60,7 @@ class ONEPROTDataModule(LightningDataModule):
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
+        self.pocket_data_type = pocket_data_type
 
 
     def setup(self, stage: Optional[str] = None):
@@ -84,6 +86,11 @@ class ONEPROTDataModule(LightningDataModule):
                     self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer)
                     self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
                     self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                
+                elif modality == 'pocket':
+                    self.datasets["pocket_train"] =  PocketDataset(split='train', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
+                    self.datasets["pocket_val"] =  PocketDataset(split='val', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
+                    self.datasets["pocket_test"] =  PocketDataset(split='test', seq_tokenizer=self.seq_tokenizer, data_type=self.pocket_data_type)
                   
 
                 
@@ -95,7 +102,6 @@ class ONEPROTDataModule(LightningDataModule):
                 print(f"{modality} Train/Validation/Test Dataset Size = {len(self.datasets[f'{modality}_train'])} / {len(self.datasets[f'{modality}_val'])} / {len(self.datasets[f'{modality}_test'])}")
                 
     def train_dataloader(self):
-        
         iterables = {}
         for modality in self.data_modalities:
         
@@ -112,10 +118,8 @@ class ONEPROTDataModule(LightningDataModule):
         return CombinedLoader(iterables, 'min_size')
 
     def val_dataloader(self):
-        
         iterables = {}
         for modality in self.data_modalities:
-        
             iterables[modality] = DataLoader(
                         dataset=self.datasets[f"{modality}_val"],
                         batch_size=self.hparams.batch_size,
@@ -126,10 +130,10 @@ class ONEPROTDataModule(LightningDataModule):
                         shuffle=False,
                     )
 
+
         return CombinedLoader(iterables, 'sequential')
 
     def test_dataloader(self):
-        
         iterables = {}
         for modality in self.data_modalities:
         

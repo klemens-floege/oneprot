@@ -26,27 +26,28 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 100
+  max_epochs: 10
   #max_steps: 10
-  num_nodes: 4
+  num_nodes: 8
   #precision: 16
   #gradient_clip_val: 1.0
-  num_sanity_val_steps: 1
-  val_check_interval: 488
+  num_sanity_val_steps: 0
+  val_check_interval: 100
   strategy: 'ddp_find_unused_parameters_true'
 
 data:
-  data_modalities: ['struct','pocket', 'text']
+  data_modalities: ['struct','pocket']
   #data_modalities: ['msa']
   seq_tokenizer: "facebook/esm2_t33_650M_UR50D"
   text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
-  batch_size: 32
+  batch_size: 64
+  pocket_data_type: "h5"
 
 callbacks:
   model_checkpoint:
-    every_n_epochs: 1
+    #every_n_epochs: 1
     filename: "epoch_{epoch:03d}_struct_pocket"
 
-ckpt_path: null
+#ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-28_22-13-47/checkpoints/epoch_067_struct_pocket.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-25_23-12-25/checkpoints/last.ckpt'
 
 

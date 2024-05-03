@@ -1,12 +1,12 @@
 #!/bin/bash -x
 
-#SBATCH --account hai_tbidia                                                      # specify the account name, otherwise the job will not run
-#SBATCH --output /p/project/hai_oneprot/floege1/oneprot/slurms/train_%j_out.out  # specify the file for the slurm output; make sure to change it to your folder
-#SBATCH --error /p/project/hai_oneprot/floege1/oneprot/slurms/train_%j_err.out   # specify the file for the slurm error message; make sure to change it to your folder
-#SBATCH --time 00:15:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
+#SBATCH --account hai_liggen                                                      # specify the account name, otherwise the job will not run
+#SBATCH --output /p/project/hai_oneprot/sommer3/oneprot/slurms/train_%j_notr_out.out  # specify the file for the slurm output; make sure to change it to your folder
+#SBATCH --error /p/project/hai_oneprot/sommer3/oneprot/slurms/train_%j_notr_err.out   # specify the file for the slurm error message; make sure to change it to your folder
+#SBATCH --time 0:10:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
 #SBATCH --cpus-per-task=24                                                         # do not change
-#SBATCH --ntasks-per-node 1                                                        # number of tasks per node; each node has 4 GPUs
-#SBATCH --nodes 2                                                                  # the number of nodes; if you request 4 nodes you get 16 GPUs
+#SBATCH --ntasks-per-node 4                                                        # number of tasks per node; each node has 4 GPUs
+#SBATCH --nodes 4                                                                  # the number of nodes; if you request 4 nodes you get 16 GPUs
 #SBATCH --partition develbooster                                                   # the walltime on develbooster is 2 hours, on booster 24 hours; maximum number of nodes on develbooster is 4 nodes
 #SBATCH --gres gpu:4                                                               # do not change
 
@@ -36,7 +36,7 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 #module load Apptainer-Tools
 
 
-echo "-------- Inside of the container ------------"
+#echo "-------- Inside of the container ------------"
 
 ##################################################################################
 
@@ -47,9 +47,10 @@ echo "-------- Inside of the container ------------"
 
 # The below script activates a virtual environment within the container
 
-#srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/one_prot.sif bash -c "source /p/project/hai_oneprot/floege1/oneprot/sc_venv_template/venv/bin/activate && python src/train.py experiment=train_ddp"'
+srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c "source /p/project/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py experiment=train_ddp"'
 
+#srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES="0,1,2,3";export PYTHONPATH="";  export HYDRA_FULL_ERROR=1; source /p/project/hai_oneprot/bazarova1/sc_venv_template_for_unimol/activate.sh && python src/train.py experiment=train_ddp"
 
-#Alina Script
-srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3";
-export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c "source /p/project/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py  experiment=train_ddp"'
+#srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH="";export HYDRA_FULL_ERROR=1; \
+# apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \
+#  "source /p/project/hai_oneprot/bazarova1/sc_venv_template_for_unimol/activate.sh && python src/train.py experiment=train_ddp"'

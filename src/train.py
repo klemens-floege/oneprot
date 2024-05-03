@@ -59,6 +59,8 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+
+    #print("after data module!!!!!!!!!!!!!")
     
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -140,6 +142,32 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     # return optimized metric
     return metric_value
+
+#from lightning.pytorch.plugins.environments import SLURMEnvironment
+# For PyTorch Lightning <2, you need to use this namespace instead:
+from pytorch_lightning.plugins.environments import SLURMEnvironment
+
+
+def patch_lightning_slurm_master_addr():
+    # Quit if we're not on a Jülich machine.
+    if os.getenv('SYSTEMNAME', '') not in [
+            'juwelsbooster',
+            'juwels',
+            'jurecadc',
+    ]:
+        return
+
+    old_resolver = SLURMEnvironment.resolve_root_node_address
+
+    def new_resolver(self, nodes):
+        # Append an i" for communication over InfiniBand.
+        return old_resolver(nodes) + 'i'
+
+    SLURMEnvironment.__old_resolve_root_node_address = old_resolver
+    SLURMEnvironment.resolve_root_node_address = new_resolver
+
+
+patch_lightning_slurm_master_addr()
 
 
 if __name__ == "__main__":

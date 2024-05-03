@@ -76,6 +76,7 @@ class ClipLoss(nn.Module):
         return labels
 
     def get_logits(self, sequence_features, modality_features):
+        #print(sequence_features.shape, modality_features.shape," shapes of sequence_features, modality_features!!!!!!!!!!")
         if self.world_size > 1:
             all_sequence_features, all_modality_features = gather_features(
                 sequence_features, modality_features,

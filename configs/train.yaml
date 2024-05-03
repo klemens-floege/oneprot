@@ -46,7 +46,9 @@ test: True
 compile: False
 
 # simply provide checkpoint path to resume training
-ckpt_path: null
+ckpt_path: null #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-26_01-01-07/checkpoints/last.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-21_19-59-36/checkpoints/last.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-21_02-48-12/checkpoints/epoch_000.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-19_09-30-19/checkpoints/last.ckpt
+# #null #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-15_20-46-41/checkpoints/last.ckpt
+#/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-18_17-11-50/checkpoints/last.ckpt
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: null

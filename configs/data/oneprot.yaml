@@ -6,5 +6,7 @@ text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"
 use_struct_mask: True
 use_struct_coord_noise: True
 use_struct_deform: True
-data_modalities: ['struct']
+data_modalities: ['struct','pocket']
+#data_modalities: ['msa']
 pin_memory: False
+pocket_data_type: "lmdb"

@@ -1,7 +1,7 @@
 _target_: src.models.oneprot_module.ONEPROTLitModule
 
 defaults:
-  - network_pocket_structure_text.yaml
+  - network_pocket_structure_msa.yaml
   #- network_msa.yaml
   - _self_
 

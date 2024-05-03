@@ -8,7 +8,7 @@
 # e.g. if you want to use tensorboard instaed of wandb as a logger, please change the line 13 to tensorboard.yaml
 defaults:
   - override /data: oneprot.yaml
-  - override /model: oneprot.yaml
+  - override /model: oneprot_3.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
@@ -16,7 +16,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ['struct','pocket', "facebook/esm2_t36_3B_UR50D"]
+tags: ['pocket','struct','text', "facebook/esm2_t36_3B_UR50D"]
 #tags: ['msa', "facebook/esm2_t36_3B_UR50D"]
 
 
@@ -28,15 +28,15 @@ trainer:
   min_epochs: 1
   max_epochs: 100
   #max_steps: 10
-  num_nodes: 4
+  num_nodes: 8
   #precision: 16
   #gradient_clip_val: 1.0
-  num_sanity_val_steps: 1
-  val_check_interval: 488
+  num_sanity_val_steps: 0
+  val_check_interval: 399
   strategy: 'ddp_find_unused_parameters_true'
 
 data:
-  data_modalities: ['struct','pocket', 'text']
+  data_modalities: ['pocket','struct','text']
   #data_modalities: ['msa']
   seq_tokenizer: "facebook/esm2_t33_650M_UR50D"
   text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
@@ -45,8 +45,8 @@ data:
 callbacks:
   model_checkpoint:
     every_n_epochs: 1
-    filename: "epoch_{epoch:03d}_struct_pocket"
+    filename: "epoch_{epoch:03d}_pocket_struct_text"
 
-ckpt_path: null
 
+ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-25_23-24-12/checkpoints/last.ckpt'
 

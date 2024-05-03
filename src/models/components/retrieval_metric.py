@@ -75,8 +75,15 @@ class RetrievalMetric(Metric):
 
     def compute(self) -> Tensor:
         """Compute CLIP retrieval scores."""
+        #print(self.preds,"sequence outputs!!!!")
+        #print(self.preds.shape,"sequence outputs shape!!!!")
+
+        #print(self.target,"modality outputs!!!!")
+        #print(self.target.shape,"modality outputs shape!!!!")  
         sequence_outputs = dim_zero_cat(self.preds)
         modality_outputs = dim_zero_cat(self.target)
+        
+      
 
         metrics = {}
         logits_per_sequence = (sequence_outputs @ modality_outputs.t()).detach().cpu()
@@ -92,6 +99,7 @@ class RetrievalMetric(Metric):
             metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1
             for k in self.k:
                 metrics[f"{name}_R@{k}"] = np.mean(preds < k)
+        #print(torch.distributed.get_rank()," I computed!!!")
 
         return metrics
 

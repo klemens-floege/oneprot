@@ -76,32 +76,30 @@ class ONEPROTLitModule(LightningModule):
             self.metrics["test_"+modality] = RetrievalMetric()
 
     def forward(self, sequence_inputs, modality_inputs, modality = 'structure') -> torch.Tensor:
- 
+        #print("I am in the forward of the model!!!!!!!!!!!!!!!!!!")
         sequence_outputs = self.oneprot['sequence'](sequence_inputs)
 
         if modality=='msa':
             modality_output_temp = []
             for i in range(0, modality_inputs.shape[0], 4):
                 #modality_output = self.oneprot[modality](torch.unsqueeze(modality_inputs[i,...],0))
+                #print(modality_inputs[i:i+4,...].shape," modality inputs!!!!!!!!!!!!!!!!")
                 modality_output = self.oneprot[modality](modality_inputs[i:i+4,...])
                 modality_output_temp.extend(modality_output)
             modality_outputs = torch.stack(modality_output_temp)
         else:
             modality_outputs = self.oneprot[modality](modality_inputs)
-
         return sequence_outputs, modality_outputs
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
-        # by default lightning executes validation step sanity checks before training starts,
-        # so it's worth to make sure validation metrics don't store results from these checks
         self.train_loss.reset()
         self.val_loss.reset()
         self.test_loss.reset()
         self.val_loss_best.reset()
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor], #batch_idx: int
     ) -> torch.Tensor:
         """Perform a single training step on a batch of data from the training set.
 
@@ -111,10 +109,8 @@ class ONEPROTLitModule(LightningModule):
         :return: A tensor of losses between model predictions and targets.
         """
         opt = self.optimizers()    
-        #opt = self.hparams.optimizer(params=self.trainer.model.parameters())
         
         for modality in list(batch.keys()):     
-            
             sequence_inputs, modality_inputs = batch[modality]
             sequence_features, modality_features = self.forward(sequence_inputs, modality_inputs, modality)
             opt.zero_grad()
@@ -129,12 +125,12 @@ class ONEPROTLitModule(LightningModule):
         "Lightning hook that is called when a training epoch ends."
         pass
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor] = None, batch_idx: int = 0, dataloader_idx: int = 0) -> None:
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor] = None, batch_idx: int = 0, 
+                        dataloader_idx: int = 0) -> None:
 
         modality = self.data_modalities[dataloader_idx]
         sequence_inputs, modality_inputs = batch
         sequence_features, modality_features = self.forward(sequence_inputs, modality_inputs, modality)
-     
         self.metrics["val_"+modality].update(sequence_features, modality_features)
 
         loss = self.loss_fn(sequence_features, modality_features)
@@ -146,17 +142,17 @@ class ONEPROTLitModule(LightningModule):
         "Lightning hook that is called when a validation epoch ends."
         loss = self.val_loss.compute()  # get current val acc
         self.val_loss_best(loss)  # update best so far val acc
-        
         for modality in self.data_modalities:
-
             metric_results = self.metrics["val_"+modality].compute()
+
             for vals in metric_results:
                 self.log(f"val/{modality}/{vals}", metric_results[vals], sync_dist=True, prog_bar=True)
             self.metrics["val_"+modality].reset()
         
         self.log("val/loss_best", self.val_loss_best.compute(), sync_dist=True, prog_bar=True)
 
-    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor] = None, batch_idx: int = 0, dataloader_idx: int = 0) -> None:
+    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor] = None, batch_idx: int = 0, 
+                  dataloader_idx: int = 0) -> None:
 
         
         modality = self.data_modalities[dataloader_idx]
