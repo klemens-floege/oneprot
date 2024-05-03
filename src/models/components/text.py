@@ -13,6 +13,7 @@ try:
     from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
+    from peft import LoraConfig, TaskType, get_peft_model
 
 except ImportError as e:
     transformers = None
@@ -103,9 +104,19 @@ class TextModel(nn.Module):
             proj: str = None,
             use_logit_scale: str = None,
             pretrained: bool = True,
+            use_lora: bool = True, 
+            lora_r: int = 8,
+            lora_alpha: int = 16, 
+            lora_dropout: int = 0.1,
+            target_modules: list = ['query', 'key', 'value']
     ):
         super().__init__()
+        self.use_lora = use_lora
         self.output_dim = output_dim
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
+        self.target_modules = target_modules
 
         # TODO: find better way to get this information
         uses_transformer_pooler = (pooler_type == "cls_pooler")
@@ -122,10 +133,30 @@ class TextModel(nn.Module):
             self.config = config
             self.transformer = AutoModel.from_config(config)
 
-        self.transformer.eval()
         
-        for param in self.transformer.parameters():
-            param.requires_grad = False
+
+        if self.use_lora: 
+            # prepare for finetuning to OneProt embeddings
+            peft_config = LoraConfig(
+                task_type=TaskType.FEATURE_EXTRACTION, 
+                inference_mode=False, 
+                r=self.lora_r, 
+                lora_alpha=self.lora_alpha, 
+                lora_dropout=self.lora_dropout,
+                target_modules=self.target_modules
+            )
+
+            self.transformer = get_peft_model(self.transformer, peft_config)
+            print('LoRA params: ')
+            self.transformer.print_trainable_parameters()
+         
+        else: 
+
+            self.transformer.eval()
+        
+            #Freeze Text Model
+            for param in self.transformer.parameters():
+                param.requires_grad = False
 
         self.pooler = _POOLERS[pooler_type]()
 

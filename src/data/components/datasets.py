@@ -12,9 +12,9 @@ import h5py
 import pandas as pd
 
 class MSADataset(Dataset):
-    def __init__(self, data_dir="/p/scratch/hai_oneprot/openfoldh5s", split='train', max_length=1024, msa_depth=100, seq_tokenizer="facebook/esm2_t33_650M_UR50D"):
+    def __init__(self, data_dir="/p/scratch/hai_oneprot/MSA_data", split='train', max_length=1024, msa_depth=100, seq_tokenizer="facebook/esm2_t33_650M_UR50D"):
         
-        filename = f"{data_dir}/msa_{split}_files.txt"
+        filename = f"{data_dir}/{split}_MSA_clean.txt"
         self.msa_files = filter_and_create_msa_file_list(filename)
         _, msa_transformer_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
         self.msa_padding_idx =1

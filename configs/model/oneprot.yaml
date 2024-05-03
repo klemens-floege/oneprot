@@ -1,7 +1,7 @@
 _target_: src.models.oneprot_module.ONEPROTLitModule
 
 defaults:
-  - network_structure.yaml
+  - network_structure_text.yaml
   - _self_
 
 loss_fn: CLIP

@@ -29,11 +29,11 @@ trainer:
   num_nodes: 4
   #precision: 16
   #gradient_clip_val: 1.0
-  num_sanity_val_steps: 5
+  num_sanity_val_steps: 2 # -1
   val_check_interval: 100
 
 data:
-  data_modalities: ['struct']
+  data_modalities: ['struct', 'text'] #cannot include seq, since seq is aslwqys there
   seq_tokenizer: "facebook/esm2_t33_650M_UR50D"
   text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
-  batch_size: 64
+  batch_size: 16 #batch size per GPU 
