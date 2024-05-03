@@ -32,7 +32,7 @@ trainer:
   #precision: 16
   #gradient_clip_val: 1.0
   num_sanity_val_steps: 1
-  val_check_interval: 488
+  val_check_interval: 5
   strategy: 'ddp_find_unused_parameters_true'
 
 data:
