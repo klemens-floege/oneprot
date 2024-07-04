@@ -19,9 +19,6 @@ from unimol.tasks.unimol_pocket import UniMolPocketTask
 
 class MSADataset(Dataset):
     def __init__(self, data_dir="/p/scratch/hai_oneprot/Dataset_25_06_24/", split='train', max_length=1024, msa_depth=100, seq_tokenizer="facebook/esm2_t33_650M_UR50D",seqsim='30ss'):
-        
-        #filename = f"{data_dir}/msa_{split}_files.txt"
-        #filename=f"{data_dir}/msa_{split}_files.txt"
         filename=f"{data_dir}/{seqsim}/{split}_msa.csv"
         self.msa_files = filter_and_create_msa_file_list(filename)
         _, msa_transformer_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
@@ -31,17 +28,15 @@ class MSADataset(Dataset):
         self.max_length = max_length
         self.msa_depth = msa_depth
         self.split=split
-         # can change this to pass more/fewer sequences
  
     def __len__(self):
         return len(self.msa_files)
        
     def __getitem__(self, idx):
-     
-        return idx
+        return self.msa_files[idx]
 
 
-    def collate_fn(self, data):
+    def collate_fn(self, msa_files):
         """
         data: is a list of tuples with (example, label, length)
                 where 'example' is a tensor of arbitrary shape
@@ -49,12 +44,10 @@ class MSADataset(Dataset):
         """
         sequences = []
         msas = []
-        for i in range(len(data)):
-            msa_data = read_msa(self.msa_files[data[i]])
+        for msa_file in msa_files:
+            msa_data = read_msa(msa_file)
             msa_data = greedy_select(msa_data, num_seqs=self.msa_depth)
-        
             sequence = msa_data[0][1]
-            
             sequences.append(sequence)
             msas.append(msa_data)
 
@@ -67,8 +60,6 @@ class MSADataset(Dataset):
 class StructDataset(Dataset):
 
     def __init__(self, data_dir = '/p/scratch/hai_oneprot/Dataset_25_06_24', split="train", seq_tokenizer="facebook/esm2_t33_650M_UR50D", use_struct_mask=False, use_struct_coord_noise=False, use_struct_deform=False,pockets=False,seqsim='30ss'):
-         
-        
         self.id_list = []
         self.pockets=pockets
         self.split = split
@@ -93,27 +84,28 @@ class StructDataset(Dataset):
                     self.id_list.append(line.split(',')[0].strip())  
 
         self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
+
     def __len__(self):
         return len(self.id_list)
         
-    def __getitem__(self, idx):
-        return idx
+    def __getitem__(self, idx):       
+        return self.id_list[idx]
 
-    def collate_fn(self, data):
+    def collate_fn(self, seq_ids, return_raw_sequences=False):
         """
         data: is a list of tuples with (example, label, length)
                 where 'example' is a tensor of arbitrary shape
                 and label/length are scalars
         """
-
-        seq_ids = data
-        sequences = []
-        structures = []
-        for i in range(len(seq_ids)):
+        sequences, structures = [], []
+        for seq_id in seq_ids:
             with h5py.File(self.h5_file, 'r') as file:
-                sequence = file[self.id_list[seq_ids[i]]]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
+                sequence = file[seq_id]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
                 sequences.append(sequence)
-            structures.append(protein_to_graph(self.id_list[seq_ids[i]], self.h5_file, 'non_pdb' , 'A',pockets=self.pockets))
+            structures.append(protein_to_graph(seq_id, self.h5_file, 'non_pdb' , 'A', pockets=self.pockets))
+
+        if return_raw_sequences:
+            return sequences
         
         batch_struct = Batch.from_data_list(structures)
 
@@ -136,7 +128,6 @@ class StructDataset(Dataset):
             batch_struct.coords_c *= deform
 
         sequence_input = self.seq_tokenizer(sequences, max_length=1024, padding=True, truncation=True, return_tensors="pt").input_ids   
-       
         return sequence_input.long(), batch_struct
     
 
@@ -248,21 +239,20 @@ class PocketDataset(Dataset):
         task=UniMolPocketTask(args, dictionary)
         task.load_dataset(subset, combine=False, epoch=1,data_type=data_type)
         self.dataset = task.dataset(subset)
-        if data_type=='h5':
-            self.h5_file = f'{data_dir}{filename}'
-            if split=="train":
-                meta_file = f'{data_dir}{split}{train_name}.csv'
-            else:
-                meta_file = f'{data_dir}{split}.csv'
-        
-            self.meta_data = list(pd.read_csv(meta_file)['name'])
+        # if data_type=='h5':
+        self.h5_file = f'{data_dir}{filename}'
+        if split=="train":
+            meta_file = f'{data_dir}{split}{train_name}.csv'
         else:
-            with h5py.File("/p/project/hai_oneprot/bazarova1/pockets3.h5",'r') as file:
-                self.keys=list(file.keys())
-
-
+            meta_file = f'{data_dir}{split}.csv'
+    
+        self.meta_data = list(pd.read_csv(meta_file)['name'])
+        
+        with h5py.File("/p/project/hai_oneprot/bazarova1/pockets3.h5",'r') as file:
+            self.keys=list(file.keys())
         
         self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
+
 
     def __len__(self):
         if self.split=='train':
@@ -273,11 +263,13 @@ class PocketDataset(Dataset):
 
     def __getitem__(self, idx):
         return idx
-    
+
     def collate_fn(self, data):
-        
-        sequences = []
-        pockets = []
+        sequences, pockets = [], []
+
+        if isinstance(data[0], str):
+            uniprot_idx_list = [m.split("-")[1] for m in self.meta_data]
+            data = [uniprot_idx_list.index(d) for d in data]
 
         for i in data:
             data1=self.dataset[i]
@@ -295,7 +287,6 @@ class PocketDataset(Dataset):
                 pockets.append(pocket)
             else:
                 with h5py.File("/p/project/hai_oneprot/bazarova1/pockets3.h5",'r') as file:
-
                     sequence=file[data1['target.pdb_id']][()]
                     sequences.append(str(sequence))
                     pocket=dict()
@@ -328,21 +319,20 @@ class TextDataset(Dataset):
         return self.df.shape[0]
         
     def __getitem__(self, idx):
-        return idx
+        prot_id = self.df[0].iloc[idx]
+
+        with h5py.File(self.h5_file, 'r') as file:
+            sequence = file[prot_id]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
+
+        text = self.df[1].iloc[seq_ids]
+        return text, sequence
 
     def collate_fn(self, data):
-        sequences = []
-        texts = []
-        for seq_ids in data:
-            id=self.df[0].iloc[seq_ids]
-            
-            with h5py.File(self.h5_file, 'r') as file:
-                sequence = file[id]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
-                sequences.append(sequence)
-            texts.append(self.df[1].iloc[seq_ids])
-            
-        sequence_input = self.seq_tokenizer(sequences, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids   
+        texts = [d[0] for d in data]
+        sequences = [d[1] for d in data]
+
         text_input = self.text_tokenizer(texts, max_length=512, padding=True, truncation=True, return_tensors="pt").input_ids   
+        sequence_input = self.seq_tokenizer(sequences, max_length=1026, padding=True, truncation=True, return_tensors="pt").input_ids   
         return sequence_input.long(), text_input.long()
  
 

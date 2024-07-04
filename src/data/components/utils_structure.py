@@ -177,7 +177,10 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                                 atom_amino_id.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['atom_amino_id'][()]) #size: (n_atom,)
                                 atom_names.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['type'][()]) #size: (n_atom,)
                                 atom_pos.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['xyz'][()]) #size: (n_atoms, 3)
-                        
+                        amino_types = np.array(amino_types)
+                        atom_amino_id = np.array(atom_amino_id)
+                        atom_names = np.array(atom_names)
+                        atom_pos = np.array(atom_pos)
 
                 else:
 

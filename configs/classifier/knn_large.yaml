@@ -1,0 +1,2 @@
+_target_: sklearn.neighbors.KNeighborsClassifier
+n_neighbors: 8

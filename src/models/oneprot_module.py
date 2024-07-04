@@ -76,14 +76,11 @@ class ONEPROTLitModule(LightningModule):
             self.metrics["test_"+modality] = RetrievalMetric()
 
     def forward(self, sequence_inputs, modality_inputs, modality = 'structure') -> torch.Tensor:
-        #print("I am in the forward of the model!!!!!!!!!!!!!!!!!!")
         sequence_outputs = self.oneprot['sequence'](sequence_inputs)
 
         if modality=='msa':
             modality_output_temp = []
             for i in range(0, modality_inputs.shape[0], 4):
-                #modality_output = self.oneprot[modality](torch.unsqueeze(modality_inputs[i,...],0))
-                #print(modality_inputs[i:i+4,...].shape," modality inputs!!!!!!!!!!!!!!!!")
                 modality_output = self.oneprot[modality](modality_inputs[i:i+4,...])
                 modality_output_temp.extend(modality_output)
             modality_outputs = torch.stack(modality_output_temp)
@@ -178,6 +175,29 @@ class ONEPROTLitModule(LightningModule):
             self.metrics["test_"+modality].reset()
         
         self.log("test/loss", loss, sync_dist=True, prog_bar=True)
+
+    @torch.no_grad()
+    def predict_step(self, batch, batch_idx):
+        # Comment: it is a bit uncommon to process the targets in the predict function
+        # we do this to use torch lightning multi-gpu prediction which handles this easily (getting the embeddings is expensive)
+        # I am doing this here to make sure no targets are accidentally shuffled or mismatched during MP
+        sequence, structure, target = batch
+        seq, embs = self(sequence, structure, modality="struct")
+        seq = self.transform_func(seq)
+        embs = self.transform_func(embs)
+
+        
+        rank = self.trainer.global_rank
+        gpu = torch.cuda.current_device()
+        local_path = self.output_dir / self.current_partition / f"{str(rank)}_{str(gpu)}"
+        if not local_path.exists():
+            local_path.mkdir(parents=True)
+
+        np.save(local_path / f"{batch_idx}_seq.npy", seq.detach().cpu().numpy())
+        np.save(local_path / f"{batch_idx}_mod.npy", embs.detach().cpu().numpy())
+        np.save(local_path / f"{batch_idx}_target.npy", target)
+
+        return seq.detach().cpu().numpy(), embs.detach().cpu().numpy(), target
         
 
     def configure_optimizers(self):

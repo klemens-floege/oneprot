@@ -1,19 +1,10 @@
-# @package _global_
-
 defaults:
   - _self_
-  - data: oneprot.yaml
-  - model: oneprot.yaml
-  - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
-  - trainer: default.yaml
-  - paths: default.yaml
-  - extras: default.yaml
-  - hydra: default.yaml
-  - experiment: null
-task_name: "eval"
+  - data: oneprot
+  - model: oneprot
 
-tags: ["dev"]
-
-# passing checkpoint path is necessary for evaluation
-ckpt_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2023-10-12_19-43-06/checkpoints/last.ckpt
-#/p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2023-10-07_06-43-07/checkpoints/epoch_014.ckpt
+ckpt_path: /p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-07-03__09:36:19/last.ckpt
+retrieval_dataset: /p/scratch/hai_oneprot/retrieval_dataset
+eval_ks: [1, 3, 5, 10, 20]
+transform_func: identity # threshold
+bit_threshold: 0
