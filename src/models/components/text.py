@@ -108,7 +108,8 @@ class TextModel(nn.Module):
             lora_r: int = 8,
             lora_alpha: int = 16, 
             lora_dropout: int = 0.1,
-            target_modules: list = ['query', 'key', 'value']
+            target_modules: list = ['query', 'key', 'value'],
+            frozen: bool = True
     ):
         super().__init__()
         self.use_lora = use_lora
@@ -151,12 +152,12 @@ class TextModel(nn.Module):
             self.transformer.print_trainable_parameters()
          
         else: 
-
-            self.transformer.eval()
+            if frozen:
+                self.transformer.eval()
         
             #Freeze Text Model
-            for param in self.transformer.parameters():
-                param.requires_grad = False
+                for param in self.transformer.parameters():
+                    param.requires_grad = False
 
         self.pooler = _POOLERS[pooler_type]()
 

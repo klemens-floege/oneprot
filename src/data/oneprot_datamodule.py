@@ -35,7 +35,7 @@ class ONEPROTDataModule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "/p/scratch/hai_oneprot/openfoldh5s",
+        data_dir: str = "/p/scratch/hai_oneprot/Dataset_25_06_24",
         data_modalities: list = ['sequence','structure','pocket'],
         text_tokenizer: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
         seq_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
@@ -44,7 +44,8 @@ class ONEPROTDataModule(LightningDataModule):
         use_struct_deform: bool =False,
         batch_size: int = 64,
         pin_memory: bool = False,
-        pocket_data_type='h5'
+        pocket_data_type='h5',
+        seqsim='30ss'
     ):
         super().__init__()
 
@@ -61,6 +62,7 @@ class ONEPROTDataModule(LightningDataModule):
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
         self.pocket_data_type = pocket_data_type
+        self.seqsim=seqsim
 
 
     def setup(self, stage: Optional[str] = None):
@@ -77,27 +79,34 @@ class ONEPROTDataModule(LightningDataModule):
             for modality in self.data_modalities:
                 
                 if modality == 'struct':
-                    self.datasets["struct_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform )
-                    self.datasets["struct_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["struct_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                    #print(modality," modality")
+                    self.datasets["struct_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform,seqsim=self.seqsim )
+                    self.datasets["struct_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
+                    self.datasets["struct_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
                   
                     
                 elif modality == 'msa':
-                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer)
-                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer)
+                    #print(modality," modality")
+                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
+                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
+                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
                 
                 elif modality == 'pocket':
-                    self.datasets["pocket_train"] =  PocketDataset(split='train', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
-                    self.datasets["pocket_val"] =  PocketDataset(split='val', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
-                    self.datasets["pocket_test"] =  PocketDataset(split='test', seq_tokenizer=self.seq_tokenizer, data_type=self.pocket_data_type)
-                  
+                    #print(modality," modality")
+                    # self.datasets["pocket_train"] =  PocketDataset(split='train', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
+                    # self.datasets["pocket_val"] =  PocketDataset(split='val', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
+                    # self.datasets["pocket_test"] =  PocketDataset(split='test', seq_tokenizer=self.seq_tokenizer, data_type=self.pocket_data_type)
+                    self.datasets["pocket_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform,pockets=True,seqsim=self.seqsim )
+                    self.datasets["pocket_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,pockets=True,seqsim=self.seqsim)
+                    self.datasets["pocket_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,pockets=True,seqsim=self.seqsim)
+              
 
                 
                 elif modality == 'text':
-                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
-                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer)
+                    #print(modality," modality")
+                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
+                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
+                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
                 
                 print(f"{modality} Train/Validation/Test Dataset Size = {len(self.datasets[f'{modality}_train'])} / {len(self.datasets[f'{modality}_val'])} / {len(self.datasets[f'{modality}_test'])}")
                 

@@ -97,14 +97,11 @@ class ClipLoss(nn.Module):
     def forward(self, sequence_features, modality_features,  output_dict=False):
         device = sequence_features.device
         logits_per_sequence, logits_per_modality = self.get_logits(sequence_features, modality_features)
-
         labels = self.get_ground_truth(device, logits_per_sequence.shape[0])
-
         total_loss = (
             F.cross_entropy(logits_per_sequence, labels) +
             F.cross_entropy(logits_per_modality, labels)
         ) / 2
-
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
 

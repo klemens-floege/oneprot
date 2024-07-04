@@ -47,7 +47,6 @@ class StructureModel(nn.Module):
 
     def forward(self, batch: TensorType):
         
-        #print(batch,"batch structure!!!!!!!!!!!!!!!!!!")
         pooled_out = self.model(batch)
         projected = self.proj(pooled_out)
         normed = self.norm(projected) 

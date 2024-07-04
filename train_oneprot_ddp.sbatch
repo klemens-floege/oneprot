@@ -1,11 +1,14 @@
 #!/bin/bash -x
 
-#SBATCH --account hai_oneprot                                                     # specify the account name, otherwise the job will not run
-#SBATCH --time 12:00:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
+#SBATCH --account training2425                                                    # specify the account name, otherwise the job will not run
+#SBATCH --time 4:00:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
 #SBATCH --cpus-per-task=24                                                         # do not change
-#SBATCH --ntasks-per-node 4                                                        # number of tasks per node; each node has 4 GPUs
-#SBATCH --nodes 4                                                                  # the number of nodes; if you request 4 nodes you get 16 GPUs
-#SBATCH --partition booster                                                   # the walltime on develbooster is 2 hours, on booster 24 hours; maximum number of nodes on develbooster is 4 nodes
+#SBATCH --ntasks-per-node 1                                                        # number of tasks per node; each node has 4 GPUs
+#SBATCH --nodes 16 # the number of nodes; if you request 4 nodes you get 16 GPUs
+#SBATCH --output /p/project1/hai_oneprot/bazarova1/oneprot-main/slurms/train_%j_notr_out.out  # specify the file for the slurm output; make sure to change it to your folder
+#SBATCH --error /p/project1/hai_oneprot/bazarova1/oneprot-main/slurms/train_%j_notr_err.out
+##SBATCH --dependency=afterany:9950599
+#SBATCH --partition dc-gpu                                                   # the walltime on develbooster is 2 hours, on booster 24 hours; maximum number of nodes on develbooster is 4 nodes
 #SBATCH --gres gpu:4                                                               # do not change
 
 ##SBATCH --nodelist=jwb[0001-0012,0022-0025,0027-0035,0037-0044,0053-0057,0060-0074,0076,0085-0095,0097-0108,0117-0126,0128-0129,0131-0140,0150-0172,0181-0185,0187-0192,0194-0198,0200,0202-0204,0214-0226,0228-0231,0233-0236,0245-0252,0254-0261,0263-0265,0267-0268,0277-0286,0288-0293,0295,0297-0300,0309-0332,0341-0358,0360,0362-0364,0373-0380,0382-0390,0392-0396,0405-0417,0419-0428,0437-0448,0450-0453,0455-0460,0469-0473,0475,0477-0492,0501,0503-0524,0533-0541,0543-0546,0548-0549,0551-0556,0565-0588,0597-0606,0608-0616,0618-0620,0629-0633,0635-0644,0647-0652,0661-0674,0677-0679,0681-0684,0693-0711,0713-0716,0725-0747,0757-0780,0789-0800,0802-0812,0821-0823,0825-0844,0853-0876,0885-0894,0896-0899,0901-0908,0917-0926,0928-0934,0936-0940,0949-0970,0972,0981-1004,1013-1021,1024-1028,1030-1036,1045-1046,1048-1056,1058-1063,1065-1066,1068,1077-1100,1109-1115,1118-1124,1127-1132,1141-1155,1157-1164,1173-1196,1205-1212,1216,1220,1222,1226,1228,1237]                                                 # do not change
@@ -13,9 +16,14 @@
 
 ######################## DO NOT CHANGE THE BELOW ################################
 
+export http_proxy=http://134.94.199.178:7008;
+export https_proxy=$http_proxy
+export HTTP_PROXY=$http_proxy
+export HTTPS_PROXY=$http_proxy
+
 export SRUN_CPUS_PER_TASK="$SLURM_CPUS_PER_TASK"
 
-CACHE_DIR=/p/scratch/hai_oneprot/huggingface
+CACHE_DIR=/p/oldscratch/hai_oneprot/huggingface
 export TRANSFORMERS_CACHE="$CACHE_DIR"/models
 export HF_DATASETS_CACHE="$CACHE_DIR"/datasets
 export HF_MODULES_CACHE="$CACHE_DIR"/modules
@@ -46,7 +54,7 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 # The below script activates a virtual environment within the container
 ckpt_path=$1
 run_dir=$2
-srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py experiment=train_ddp ckpt_path=${ckpt_path} callbacks.model_checkpoint.dirpath=${run_dir}\""
+srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project1/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project1/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py experiment=train_ddp_1_booster.yaml  ckpt_path=${ckpt_path} callbacks.model_checkpoint.dirpath=${run_dir}\""
 
 #srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES="0,1,2,3";export PYTHONPATH="";  export HYDRA_FULL_ERROR=1; source /p/project/hai_oneprot/bazarova1/sc_venv_template_for_unimol/activate.sh && python src/train.py experiment=train_ddp"
 

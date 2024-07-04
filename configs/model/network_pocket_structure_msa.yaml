@@ -8,20 +8,32 @@ network:
       output_dim: 1024
       proj: linear
       use_logit_scale: False
-    pocket: 
-      _target_: src.models.components.pocket.PocketModel
-      #encoder:
-      #  _target_: dig.threedgraph.method.ProNet
-      #  level: backbone
-      #  out_channels: ${model.network.modules.sequence.output_dim}
-      #  euler_noise: True
-      #  data_augment_eachlayer: True 
-      #  dropout: 0.25
+    pocket:
+      _target_: src.models.components.structure.StructureModel
+      encoder:
+        _target_: dig.threedgraph.method.ProNet
+        level: backbone
+        out_channels: ${model.network.modules.sequence.output_dim}
+        euler_noise: True
+        data_augment_eachlayer: True 
+        dropout: 0.25
       output_dim: ${model.network.modules.sequence.output_dim}
       proj: linear
       use_logit_scale: False
-      ckpt_path: '/p/project/found/bazarova1/pocket_pre_220816.pt'
-      train_enc: False
+      #pockets: True
+      # _target_: src.models.components.pocket.PocketModel
+      # #encoder:
+      # #  _target_: dig.threedgraph.method.ProNet
+      # #  level: backbone
+      # #  out_channels: ${model.network.modules.sequence.output_dim}
+      # #  euler_noise: True
+      # #  data_augment_eachlayer: True 
+      # #  dropout: 0.25
+      # output_dim: ${model.network.modules.sequence.output_dim}
+      # proj: linear
+      # use_logit_scale: False
+      # ckpt_path: '/p/project/found/bazarova1/pocket_pre_220816.pt'
+      # train_enc: False
     struct: 
       _target_: src.models.components.structure.StructureModel
       encoder:

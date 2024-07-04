@@ -2,6 +2,10 @@
 import h5py
 import numpy as np
 import logging
+import json
+
+from scipy.spatial import distance
+
 
 import torch
 import torch.nn.functional as F
@@ -140,16 +144,12 @@ def compute_diherals(v1, v2, v3):
         return torsion
 
 
-def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss_v4/AlphaFold_swiss_v4.h5', dataset='non_pdb', chain='A'):
+def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss_v4/AlphaFold_swiss_v4.h5', dataset='non_pdb', chain='A',pockets=False):
         data = Data()
         #print(f"Entered with {identifier} {chain}")
         with h5py.File(h5_file, 'r') as file:
 
         #current implementation goes over all chains
-        # amino_types = []
-        # atom_amino_id = []
-        # atom_names = []
-        # atom_pos = []
         
                 if chain == 'A' and dataset=='non_pdb':
                 
@@ -159,6 +159,8 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                         atom_amino_id = file[f'{identifier}']['structure']['0']['A']['polypeptide']['atom_amino_id'][()] #size: (n_atom,)
                         atom_names = file[f'{identifier}']['structure']['0']['A']['polypeptide']['type'][()] #size: (n_atom,)
                         atom_pos = file[f'{identifier}']['structure']['0']['A']['polypeptide']['xyz'][()] #size: (n_atoms, 3)
+
+
                 elif chain == 'all' and dataset=='pdb':
                         
                         amino_types = []
@@ -175,6 +177,7 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                                 atom_amino_id.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['atom_amino_id'][()]) #size: (n_atom,)
                                 atom_names.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['type'][()]) #size: (n_atom,)
                                 atom_pos.extend(file[f'{identifier}']['structure']['0'][f'{chain_id}']['polypeptide']['xyz'][()]) #size: (n_atoms, 3)
+                        
 
                 else:
 
@@ -185,7 +188,7 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
                         atom_amino_id = file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['atom_amino_id'][()] #size: (n_atom,)
                         atom_names = file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['type'][()] #size: (n_atom,)
                         atom_pos = file[f'{identifier}']['structure']['0'][f'{chain}']['polypeptide']['xyz'][()] #size: (n_atoms, 3)
-
+        
         try:
                 pos_n, pos_ca, pos_c, pos_cb, pos_g, pos_d, pos_e, pos_z, pos_h = get_atom_pos(amino_types, atom_names, atom_amino_id, atom_pos)
         except:
@@ -218,3 +221,63 @@ def protein_to_graph(identifier, h5_file='/p/scratch/hai_oneprot/alphafold_swiss
             raise AssertionError
 
         return data
+
+
+def obtain_binding_site(identifier):
+        json_file2='/p/scratch/hai_oneprot/openfoldh5s/clean_binding_locations.json'
+
+        with open(json_file2, 'r') as file:
+                pockets = json.load(file)
+        #identifier=identifier.split('-')[1]
+        return pockets[identifier]['0']
+
+
+def count_cut(center, count, atom_amino_id, atom_names, atom_pos):
+        """Cuts the binding site from the center expanding by one atom at a time till count"""
+        #merge data into a single object for filtering
+        data = np.column_stack((atom_amino_id, atom_names, atom_pos))
+    
+        #cast center tuple to 2D array and calculate distances for each position to center
+        center = np.array(center).reshape(1, -1)
+        distances = distance.cdist(center, data[:, 2:5].astype(float), "euclidean")
+        distances = distances.reshape(len(atom_pos), 1)
+    
+        #merge data and sort
+        data = np.hstack((data, distances)) #
+        binding_site = data#[data[:, 5].astype(float).argsort()][0:count]
+    
+        #unmerge data
+        atom_amino_id = binding_site[:, 0].astype(int)
+        atom_names = binding_site[:, 1]
+        atom_pos = binding_site[:, 2:5].astype(float)
+        return atom_amino_id, atom_names, atom_pos
+
+def count_cut2(center, count, atom_amino_id, atom_names, atom_pos, amino_types):
+        data = np.column_stack((atom_amino_id, atom_names, atom_pos))
+        indices = data[:, 0].astype(int)
+        center = np.array(center).reshape(1, -1)
+        amino_types = np.array(amino_types)
+
+        x = []
+        y = []
+        z = []
+
+        for i in np.unique(indices):
+                mask = np.where(indices == i)
+                x.append(np.average(data[:, 2][mask].astype(float)))
+                y.append(np.average(data[:, 3][mask].astype(float)))
+                z.append(np.average(data[:, 4][mask].astype(float)))
+
+        average_xyz = np.column_stack((x,y,z))
+        distance_mask = distance.cdist(center, average_xyz, "euclidean")[0]
+        binding_data = np.column_stack((np.unique(indices), distance_mask))
+        binding_data = binding_data[binding_data[:, 1].argsort()]
+
+        new_indices = binding_data[0:count]
+        amino_types = amino_types[np.isin(np.arange(1, len(amino_types)+1), new_indices[:, 0].astype(int))]
+        binding_site = data[np.isin(data[:, 0].astype(int), new_indices[:, 0].astype(int))]
+
+        atom_amino_id = binding_site[:, 0].astype(int)
+        atom_names = binding_site[:, 1]
+        atom_pos = binding_site[:, 2:5].astype(float)
+        return atom_amino_id, atom_names, atom_pos, amino_types

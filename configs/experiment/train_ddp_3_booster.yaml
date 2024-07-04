@@ -16,7 +16,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ['pocket','struct','text', "facebook/esm2_t36_3B_UR50D"]
+tags: ['text', "facebook/esm2_t36_3B_UR50D"]
 #tags: ['msa', "facebook/esm2_t36_3B_UR50D"]
 
 
@@ -26,26 +26,28 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 64
+  max_epochs: 200
   #max_steps: 10
   num_nodes: 8
   #precision: 16
   #gradient_clip_val: 1.0
   num_sanity_val_steps: 0
-  val_check_interval: 199
+  val_check_interval: 30
   strategy: 'ddp_find_unused_parameters_true'
 
 data:
-  data_modalities: ['pocket','struct','text']
+  data_modalities: ['text']
   #data_modalities: ['msa']
   seq_tokenizer: "facebook/esm2_t33_650M_UR50D"
-  text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
-  batch_size: 64
+  #text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+  batch_size: 32
+  seqsim: '40ss'
+
 
 callbacks:
   model_checkpoint:
-    filename: "epoch_{epoch:03d}_pocket_struct_text"
+    filename: "epoch_{epoch:03d}_text"
 
 
-ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-28_22-17-56/checkpoints/epoch_054_pocket_struct_text.ckpt' # '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-25_23-24-12/checkpoints/last.ckpt'
+#ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot-main/logs/train/runs/2024-06-07_18-35-52/checkpoints/last.ckpt' # '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-25_23-24-12/checkpoints/last.ckpt'
 

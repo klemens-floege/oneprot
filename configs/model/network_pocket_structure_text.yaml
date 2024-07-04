@@ -8,18 +8,6 @@ network:
       output_dim: 1024
       proj: linear
       use_logit_scale: False
-    struct: 
-      _target_: src.models.components.structure.StructureModel
-      encoder:
-        _target_: dig.threedgraph.method.ProNet
-        level: backbone
-        out_channels: ${model.network.modules.sequence.output_dim}
-        euler_noise: True
-        data_augment_eachlayer: True 
-        dropout: 0.25
-      output_dim: ${model.network.modules.sequence.output_dim}
-      proj: linear
-      use_logit_scale: False
     pocket: 
       _target_: src.models.components.pocket.PocketModel
       #encoder:
@@ -34,10 +22,28 @@ network:
       use_logit_scale: False
       ckpt_path: '/p/project/found/bazarova1/pocket_pre_220816.pt'
       train_enc: False
+    struct: 
+      _target_: src.models.components.structure.StructureModel
+      encoder:
+        _target_: dig.threedgraph.method.ProNet
+        level: backbone
+        out_channels: ${model.network.modules.sequence.output_dim}
+        euler_noise: True
+        data_augment_eachlayer: True 
+        dropout: 0.25
+      output_dim: ${model.network.modules.sequence.output_dim}
+      proj: linear
+      use_logit_scale: False
     text: 
       _target_: src.models.components.text.TextModel
       model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t12_35M_UR50D"
       output_dim: ${model.network.modules.sequence.output_dim}
-      pooler_type: mean_pooler
+      pooler_type: cls_pooler
       proj: mlp
       use_logit_scale: False
+      use_lora: True
+      lora_r: 4
+      lora_alpha: 8
+      lora_dropout: 0.1
+      target_modules: ['query', 'key', 'value']
+      frozen: True

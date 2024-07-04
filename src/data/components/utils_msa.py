@@ -39,9 +39,11 @@ def remove_insertions(sequence: str) -> str:
 
 def read_msa(filename: str) -> List[Tuple[str, str]]:
     """ Reads the sequences from an MSA file, automatically removes insertions."""
-    
-    return [(record.description, remove_insertions(str(record.seq))) for record in SeqIO.parse(filename, "fasta")]
-
+    try:
+        temp= [(record.description, remove_insertions(str(record.seq))) for record in SeqIO.parse(filename, "fasta")]
+    except:
+        temp= [(record.description, remove_insertions(str(record.seq))) for record in SeqIO.parse(filename+'.a3m', "fasta")]
+    return temp
 
 # Select sequences from the MSA to maximize the hamming distance
 # Alternatively, can use hhfilter 
@@ -84,8 +86,11 @@ def filter_and_create_msa_file_list(file_path):
         for line in file:
             line = line.strip()
             if ".a3m" in line:
+                #line='/p/scratch/hai_oneprot/MSA_data/msa/oneprot_msa/'+line
+                line=line.split(',')[1]
                 file_list.append(line)
-#                file_list.append(line.split(',')[1])             
+
+                #file_list.append(line.split(',')[1])             
     
     return file_list
 

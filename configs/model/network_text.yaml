@@ -10,8 +10,14 @@ network:
       use_logit_scale: False
     text: 
       _target_: src.models.components.text.TextModel
-      model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t12_35M_UR50D"
+      model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #allenai/scibert_scivocab_uncased #microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t12_35M_UR50D"
       output_dim: ${model.network.modules.sequence.output_dim}
-      pooler_type: cls_pooler
+      pooler_type:  cls_pooler #pooler_output
       proj: linear
       use_logit_scale: False
+      use_lora: True
+      lora_r: 8
+      lora_alpha: 16
+      lora_dropout: 0.1
+      target_modules: ['query', 'key', 'value']
+      frozen: True

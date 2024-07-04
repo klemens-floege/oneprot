@@ -8,7 +8,7 @@
 # e.g. if you want to use tensorboard instaed of wandb as a logger, please change the line 13 to tensorboard.yaml
 defaults:
   - override /data: oneprot.yaml
-  - override /model: oneprot.yaml
+  - override /model: oneprot_1.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
@@ -16,7 +16,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ['struct','pocket', "facebook/esm2_t36_3B_UR50D"]
+tags: ['struct','pocket','msa', "facebook/esm2_t36_3B_UR50D"]
 #tags: ['msa', "facebook/esm2_t36_3B_UR50D"]
 
 
@@ -26,27 +26,29 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 5
+  max_epochs: 100
   #max_steps: 10
-  num_nodes: 8
+  num_nodes: 16
   #precision: 16
   #gradient_clip_val: 1.0
   num_sanity_val_steps: 0
-  val_check_interval: 100
+  val_check_interval: 38
   strategy: 'ddp_find_unused_parameters_true'
 
 data:
-  data_modalities: ['struct','pocket']
+  data_modalities: ['pocket','struct','msa']
   #data_modalities: ['msa']
   seq_tokenizer: "facebook/esm2_t33_650M_UR50D"
   text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
-  batch_size: 64
-  pocket_data_type: "lmdb"
+  batch_size: 32
+  pocket_data_type: "h5"
+  seqsim: '30ss'
+  #pin_memory: True
 
 callbacks:
   model_checkpoint:
     #every_n_epochs: 1
     filename: "epoch_{epoch:03d}_pocket_struct_msa"
 
-#ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-28_21-57-13/checkpoints/epoch_042_pocket_struct_msa.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-24_12-39-26/checkpoints/epoch_000.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-26_01-01-07/checkpoints/epoch_010.ckpt'
+#ckpt_path: '/p/project/hai_oneprot/bazarova1/oneprot-main/logs/train/runs/2024-06-05_16-11-09/checkpoints/last.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot-main/logs/train/runs/2024-05-31_04-25-38/checkpoints/last.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-28_21-57-13/checkpoints/epoch_042_pocket_struct_msa.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-24_12-39-26/checkpoints/epoch_000.ckpt' #'/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-26_01-01-07/checkpoints/epoch_010.ckpt'
 
