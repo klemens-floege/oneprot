@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from functools import partial
 
+import tqdm
 import h5py
 import hydra
 from omegaconf import DictConfig
@@ -14,6 +15,8 @@ import pytorch_lightning as pl
 from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Batch
 from transformers import AutoTokenizer
+from transformers import EsmTokenizer, EsmModel
+
 
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -56,7 +59,7 @@ class GeneralDataset(Dataset):
         return idx
 
     def collate_fn(self, idxs):
-        sequences, structures, targets = [], [], []
+        sequences, targets = [], []
 
         for idx in idxs:
             try:
@@ -66,24 +69,18 @@ class GeneralDataset(Dataset):
                 # load sequence from h5 file
                 with h5py.File(self.h5_path, 'r') as file:
                     sequence = file[enzyme_id]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
-                # load structure from h5 file with seperate helper function
-                structure = protein_to_graph(enzyme_id, self.h5_path, 'pdb' , 'all')
+
                 sequences.append(sequence)
-                structures.append(structure)
                 targets.append(target)
             except Exception as e:
                 print(f"Error at index {idx}: {e}")
                 continue
     
-     
-        
-        
-        # concatenate batch into one graph 
-        batch_struct = Batch.from_data_list(structures)
         # tokenize sequence for final output
         sequence_input = self.seq_tokenizer(sequences, max_length=1024, padding=True, truncation=True, return_tensors="pt").input_ids   
         targets = np.array(targets)
-        return sequence_input.long(), batch_struct, targets
+        return sequence_input.long(), targets
+        #return sequence_input, targets
  
             
         
@@ -125,27 +122,41 @@ class GeneralDataset(Dataset):
         return (sequence_input_1.long(), batch_struct_1), (sequence_input_2.long(), batch_struct_2), targets
 
 
-def collect_all_embeddings(model, dataset, cfg, partition, output_dir):
+def collect_all_embeddings(model, dataset, cfg, partition, output_dir, device):
     if cfg.task_name in ["HumanPPI"]:
         dataloader = DataLoader(dataset, batch_size=cfg.encode_batch_size, shuffle=cfg.shuffle, collate_fn=dataset.collate_humanppi_fn)
     else: 
         dataloader = DataLoader(dataset, batch_size=cfg.encode_batch_size, shuffle=cfg.shuffle, collate_fn=dataset.collate_fn)
-    trainer = pl.Trainer(
-        devices=4, 
-        accelerator='gpu', 
-        limit_predict_batches=cfg.batch_limit,
-        num_nodes=3,
-        strategy='ddp',
-    )  
 
-    model.current_partition = partition
-    model.output_dir = output_dir
+
     func = partial(function_map[cfg.transform_func.split("_")[0]], cfg=cfg)
-    model.transform_func = func
+    batch_idx = 0
+    for batch in tqdm.tqdm(dataloader):
+        seq_inputs, targets = batch
+
+        # Handling if seq_inputs is not a dictionary
+        if isinstance(seq_inputs, torch.Tensor):
+            seq_inputs = {'input_ids': seq_inputs}
+
+        inputs = {key: value.to(device) for key, value in seq_inputs.items()}
+        with torch.no_grad():
+            outputs = model(**inputs)
+            # Taking the mean of the token embeddings to get a single vector per sequence
+            seq_embeddings = outputs.last_hidden_state.mean(dim=1)
+            seq = function_map[cfg.transform_func](seq_embeddings, cfg)
+            gpu = torch.cuda.current_device()
+            local_path = output_dir / partition / f"{str(gpu)}"
+            if not local_path.exists():
+                local_path.mkdir(parents=True)
+            np.save(local_path / f"{batch_idx}_seq.npy", seq.detach().cpu().numpy())
+            np.save(local_path / f"{batch_idx}_target.npy", targets)
+            batch_idx += 1
 
     
 
-    if cfg.task_name in ["HumanPPI"]: 
+    
+
+    '''if cfg.task_name in ["HumanPPI"]: 
         for batch in dataloader:
             sequence_input_1, batch_struct_1 = batch[0]
             sequence_input_2, batch_struct_2 = batch[1]
@@ -159,19 +170,19 @@ def collect_all_embeddings(model, dataset, cfg, partition, output_dir):
             inputs_2 = sequence_input_2, batch_struct_2, targets
             trainer.predict(model, dataloaders=[inputs_2])
     else:
-        trainer.predict(model, dataloader)
+        trainer.predict(model, dataloader)'''
 
 
 def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 
-    model = hydra.utils.instantiate(cfg.model)
-    if torch.cuda.is_available():
-        if cfg.ckpt_path is not None:
-            model.load_state_dict(torch.load(cfg.ckpt_path)["state_dict"])
-        model.cuda()
-    else:
-        if cfg.ckpt_path is not None:
-            model.load_state_dict(torch.load(cfg.ckpt_path, map_location="cpu")["state_dict"])
+     # Initialize the model from the huggingface repository
+    model = EsmModel.from_pretrained("facebook/esm2_t33_650M_UR50D")
+
+    # Use multiple GPUs if available
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+    model.to(device)
     model.eval()
 
     # instantiate dataset and collect embeddings for training structures
@@ -181,10 +192,10 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         output_dir = Path(cfg.output_dir)
         output_dir = output_dir / cfg.task_name
         output_dir.mkdir(parents=True, exist_ok=True)
-        collect_all_embeddings(model, train_dataset, cfg, partition, output_dir)
+        collect_all_embeddings(model, train_dataset, cfg, partition, output_dir, device)
 
 
-@hydra.main(version_base="1.3", config_path="../configs", config_name="saprot.yaml")
+@hydra.main(version_base="1.3", config_path="../configs", config_name="esm_saprot.yaml")
 def main(cfg: DictConfig) -> None:
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True

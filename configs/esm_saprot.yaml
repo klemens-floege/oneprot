@@ -9,9 +9,8 @@ ckpt_path: null
 batch_limit: 1.0
 evaluate_on: ["train", "val", "test"]
 shuffle: False
-output_dir: /p/project/hai_oneprot/floege1/oneprot-2/outputs/saprot/30ss #test_ckpt/
-#output_dir: /p/project/hai_oneprot/floege1/oneprot-2/outputs/saprot/esm2_baseline/
+output_dir: /p/project/hai_oneprot/floege1/oneprot-2/outputs/saprot/esm2_baseline #test_ckpt/
 transform_func: identity # threshold_0
 task_name: MetalIonBinding
-fit_classifier_on: "seq" # "struct", "both"                #needs to be seq for ESM Baseline!!!
+fit_classifier_on: "seq" # "struct", "both"
  

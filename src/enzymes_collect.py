@@ -97,7 +97,7 @@ def collect_all_embeddings(model, dataset, cfg, partition, output_dir):
         devices=4, 
         accelerator='gpu', 
         limit_predict_batches=cfg.batch_limit,
-        num_nodes=3,
+        num_nodes=1, #num_nodes
         strategy='ddp',
     )  
 

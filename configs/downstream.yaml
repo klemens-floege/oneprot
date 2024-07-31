@@ -1,15 +1,15 @@
 defaults:
   - _self_
   - model: oneprot
-  - classifier: knn
+  - classifier: svm
 
 encode_batch_size: 10
-ckpt_path: /p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-07-03__09:36:19/last.ckpt
+ckpt_path: /p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-06-30__16:47:04/last.ckpt
 batch_limit: 1.0
 evaluate_on: ["train", "val", "test"]
 shuffle: False
-output_dir: /p/project/hai_oneprot/sommer3/oneprot/outputs/alina_ckpt_best
-transform_func: identity # threshold
+output_dir: /p/project/hai_oneprot/floege1/oneprot-2/outputs/30ss
+transform_func: identity # threshold           use threshold for bitvectors
 bit_threshold: 0
 
 # classifier

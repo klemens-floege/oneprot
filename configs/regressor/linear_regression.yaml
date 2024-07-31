@@ -1,0 +1,2 @@
+_target_: sklearn.linear_model.LinearRegression
+fit_intercept: True

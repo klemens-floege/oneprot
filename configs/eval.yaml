@@ -3,8 +3,8 @@ defaults:
   - data: oneprot
   - model: oneprot
 
-ckpt_path: /p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-07-03__09:36:19/last.ckpt
-retrieval_dataset: /p/scratch/hai_oneprot/retrieval_dataset
+ckpt_path: /p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-06-30__16:47:04/last.ckpt
+retrieval_dataset: /p/scratch/hai_oneprot/Dataset_25_06_24/30ss
 eval_ks: [1, 3, 5, 10, 20]
 transform_func: identity # threshold
 bit_threshold: 0
