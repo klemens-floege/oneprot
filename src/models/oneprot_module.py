@@ -199,7 +199,7 @@ class ONEPROTLitModule(LightningModule):
 
         return seq.detach().cpu().numpy(), embs.detach().cpu().numpy(), target
         
-
+ 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(),
                                 lr=self.hparams.lr,

@@ -201,7 +201,11 @@ def main(cfg: DictConfig) -> None:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
+    print('ESM2 taskname: ', cfg.task_name)
+    
     evaluate(cfg)
+
+    
 
 
 if __name__ == "__main__":

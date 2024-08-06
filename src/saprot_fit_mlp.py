@@ -57,7 +57,8 @@ class MLPClassifier(pl.LightningModule):
         super(MLPClassifier, self).__init__()
         self.model = MLP(input_size, hidden_size, num_labels, dropout_rate)
         self.learning_rate = learning_rate
-        self.loss_fn = nn.CrossEntropyLoss()
+        #self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = nn.BCEWithLogitsLoss()  # Change to BCEWithLogitsLoss
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
         self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
@@ -180,15 +181,20 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
                 file_range = sorted(list(set(file_range)))
                 for idx in file_range:
                     seq_embs_list.append(np.load(subfolder / f"{idx}_seq.npy"))
-                    mod_embs_list.append(np.load(subfolder / f"{idx}_mod.npy"))
+                    if cfg.fit_classifier_on in ["struct", "both"]:
+                        mod_embs_list.append(np.load(subfolder / f"{idx}_mod.npy"))
                     targets_list.append(np.load(subfolder / f"{idx}_target.npy"))
 
         # Concatenate embeddings if there are multiple files
         seq_embs = np.concatenate(seq_embs_list, axis=0)
-        mod_embs = np.concatenate(mod_embs_list, axis=0)
         targets = np.concatenate(targets_list, axis=0)
 
-        print(partition, seq_embs.shape, mod_embs.shape, targets.shape)
+        if cfg.fit_classifier_on in ["struct", "both"]:
+            mod_embs = np.concatenate(mod_embs_list, axis=0)
+            print(partition, seq_embs.shape, mod_embs.shape, targets.shape)
+        else:
+            print(partition, seq_embs.shape, targets.shape)
+
 
         if cfg.fit_classifier_on == "seq":
             embeddings = seq_embs
@@ -294,7 +300,9 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 
 
                 y_pred_logits = classifier.test_logits  # Extract logits
-                y_pred_proba = torch.softmax(torch.tensor(y_pred_logits), dim=1) # Convert logits to probabilities
+                #y_pred_proba = torch.softmax(torch.tensor(y_pred_logits), dim=1) # Convert logits to probabilities
+                y_pred_proba = torch.sigmoid(torch.tensor(y_pred_logits))  # Correct for multi-label
+
                 _pred_proba = torch.softmax(y_pred_logits, dim=1).cpu().numpy()  # Move logits to CPU and convert to probabilities
                 
 

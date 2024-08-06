@@ -34,6 +34,7 @@ export RANK=$SLURM_PROCID
 export WORLD_SIZE=$SLURM_NTASKS
 export LOCAL_RANK=$SLURM_LOCALID
 
+TASK_NAME=Thermostability
 
 module purge
 module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
@@ -50,4 +51,4 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 #srun --cpu-bind=none bash -c 'export CUDA_VISIBLE_DEVICES="0,1,2,3"; export PYTHONPATH=""; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif python3 src/train.py experiment=train_ddp'
 
 # The below script activates a virtual environment within the container
-srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/esm_saprot_collect.py  \"" 
+srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/esm_saprot_collect.py  task_name=$TASK_NAME\"" 

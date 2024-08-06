@@ -1,5 +1,7 @@
 from typing import Tuple
 from pathlib import Path
+from functools import partial
+
 
 import numpy as np
 import pandas as pd
@@ -18,13 +20,71 @@ from torch_geometric.data import Batch
 from transformers import AutoTokenizer
 
 from sklearn.multioutput import MultiOutputClassifier
+from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, mean_squared_error, r2_score
 
 from scipy.stats import spearmanr
 
+from sklearn.model_selection import RandomizedSearchCV
+from pprint import pprint
+
+
+
+
+#weird error
+#from utils.downstream_utils import count_f1_max, save_results_to_csv
+
 
 import pyrootutils
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+
+
+#for Bitvectors
+def identity_map(embedding, cfg):
+    return embedding
+
+def threshold_map(embedding, cfg):
+    dev = embedding.device
+    return torch.where(embedding > float(cfg.transform_func.split("_")[1]), torch.tensor(1.0).to(dev), torch.tensor(0.0).to(dev))
+
+# Define the new dense map
+def dense_value_map(embedding, cfg):
+    # Normalizing the embedding to be between 0 and 1
+    min_val = torch.min(embedding)
+    max_val = torch.max(embedding)
+    dense_embedding = (embedding - min_val) / (max_val - min_val)
+    return dense_embedding
+
+def dense_pca_map(embedding, cfg):
+    n_components = int(cfg.transform_func.split("_")[1])  # Number of dimensions to reduce to
+    pca = PCA(n_components=n_components)
+    
+    # Convert the embedding to a numpy array, apply PCA, and convert back to a tensor
+    embedding_np = embedding.cpu().detach().numpy()
+    dense_embedding_np = pca.fit_transform(embedding_np)
+    dense_embedding = torch.tensor(dense_embedding_np).to(embedding.device)
+    
+    return dense_embedding
+
+function_map = {
+    "identity": identity_map,
+    "threshold": threshold_map,
+    "densevalue": dense_value_map,
+    "densepca": dense_pca_map,
+}
+
+
+#Search Grid for Randon Forest classifier 
+# Hyperparameter grid
+random_grid = {
+    'n_estimators': [int(x) for x in np.linspace(start = 50, stop = 500, num = 10)],
+    'max_features': ['auto', 'sqrt'],
+    'max_depth': [int(x) for x in np.linspace(10, 110, num = 11)],
+    #'max_depth': [None],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'bootstrap': [True, False]
+}
 
 
 def count_f1_max(pred, target): 
@@ -68,9 +128,37 @@ def count_f1_max(pred, target):
 
 
 
+def save_results_to_csv(results: dict, cfg: DictConfig) -> None:
+    output_dir = Path(cfg.results_dir) / "downstream_results"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model_type = "OneProt" if "oneprot" in cfg.model.network.modules.sequence.model_name_or_path else "ESM2"
+    csv_path = output_dir / f"{cfg.task_name}.csv"
+    
+    results_df = pd.DataFrame(results)
+    results_df["model_type"] = model_type
+    results_df["classifier"] = str(cfg.classifier._target_)
+    results_df["hyperparameters"] = str(cfg.classifier)
+    
+    results_df.to_csv(csv_path, index=False)
+    print(f"Results saved to {csv_path}")
+
+
+
 def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     print(cfg)
-    output_dir = Path(cfg.output_dir) / cfg.task_name
+    #output_dir = Path(cfg.output_dir) / cfg.task_name
+    if cfg.system == "OneProt":
+        output_dir = Path(cfg.oneprot_output_dir) / cfg.task_name
+    elif cfg.system == "ESM2":
+        output_dir = Path(cfg.esm2_output_dir) / cfg.task_name
+    else: 
+        print('Model not configured')
+        return 
+    
+    # Create the transformation function
+    func = partial(function_map[cfg.transform_func.split("_")[0]], cfg=cfg)
+
+
     all_inputs = dict()
 
     for partition in cfg.evaluate_on:
@@ -110,6 +198,13 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
             embeddings = np.concatenate([seq_embs, mod_embs], axis=1)
         else:
             raise NotImplementedError
+        
+        # Convert embeddings to torch.Tensor for transformation
+        embeddings = torch.tensor(embeddings)
+        # Apply the transformation function to the embeddings
+        embeddings = func(embeddings)
+        # Convert the transformed embeddings back to numpy array
+        embeddings = embeddings.numpy()
 
 
         # Convert targets to numeric values if they are in string format
@@ -162,11 +257,30 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         task_type = 'classification'
 
         if cfg.task_name in ["GO_BP", "GO_MF", "GO_CC", "EC"]:
-            classifier = hydra.utils.instantiate(cfg.classifier)
+            #classifier = hydra.utils.instantiate(cfg.classifier)
+            #classifier.fit(all_inputs["train_emb"], all_inputs["train_target"])
+
+            #TODO: DOING MULTI-LABEL Classification with Scikit-Learn does not work yet. Maybe check datasets or code
+            base_classifier = hydra.utils.instantiate(cfg.classifier)
+            classifier = MultiOutputClassifier(base_classifier)
             classifier.fit(all_inputs["train_emb"], all_inputs["train_target"])
+
         else: 
             classifier = hydra.utils.instantiate(cfg.classifier)
-            classifier.fit(all_inputs["train_emb"], all_inputs["train_target"])
+
+            if cfg.hyperparameter_search:
+                print('Start RF Hyperparamteter search')
+                rf_random = RandomizedSearchCV(estimator = classifier, param_distributions = random_grid, 
+                                           n_iter = 100, 
+                                           cv = 3, verbose=2, random_state=42, n_jobs = -1)
+                # Fit the random search model
+                rf_random.fit(all_inputs["train_emb"], all_inputs["train_target"])
+                print('best parameters ', rf_random.best_params_)
+
+                classifier = rf_random.best_estimator_
+
+            else:
+                classifier.fit(all_inputs["train_emb"], all_inputs["train_target"])
 
     elif cfg.task_name in ["Thermostability"]:
         task_type = 'regression'
@@ -176,11 +290,11 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         print("Task name not configured")
         raise Exception
 
-    
+    results = {}
     # train the classifier
     if task_type == 'classification':
 
-        results = {}
+        
 
         for partition in ["val", "test"]:
             print(f"Inference on {partition}...")
@@ -225,6 +339,8 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
                 results[f"{partition}_fmax"] = score.item()
 
             else:
+                
+
                 y_pred = classifier.predict(all_inputs[f"{partition}_emb"])
                 # Evaluate classifier
                 accuracy = accuracy_score(all_inputs[f"{partition}_target"], y_pred)
@@ -261,6 +377,12 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
             print(f"{partition} R2 Score: {r2:.4f}")
             print(f"{partition} Spearman's Rank Correlation Coefficient: {spearman_rho:.4f}")
 
+            results[f"{partition}_mse"] = mse
+            results[f"{partition}_r2"] = r2
+            results[f"{partition}_spearman_rho"] = spearman_rho
+
+    save_results_to_csv(results, cfg)
+
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="saprot.yaml")
@@ -270,7 +392,12 @@ def main(cfg: DictConfig) -> None:
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
     print('taskname: ', cfg.task_name)
+    print('classifier: ', cfg.classifier)
+    print('transform_func: ', cfg.transform_func)
+    print('system: ', cfg.system)
     evaluate(cfg)
+
+
 
 
 if __name__ == "__main__":
