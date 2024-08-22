@@ -1,0 +1,14 @@
+defaults:
+  - _self_
+  - model: oneprot
+
+encode_batch_size: 10
+ckpt_path: null
+batch_limit: 1.0
+evaluate_on: ["train"]
+shuffle: False
+output_dir: /p/project1/hai_oneprot/udayakumar1/oneprot-main/outputs/saprot/esm2_baseline #test_ckpt/
+transform_func: identity # threshold_0
+task_name: TopEnzyme
+fit_classifier_on: "seq" # "struct", "both"
+ 
