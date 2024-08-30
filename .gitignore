@@ -158,6 +158,9 @@ lightning_logs/
 multirun/
 .env
 *.csv
+*.sh
+*.sbatch
+*.sif
 # Aim logging
 .aim
 /slurms/

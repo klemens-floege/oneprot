@@ -1,0 +1,9 @@
+_target_: xgboost.XGBClassifier
+name: XGBClassifier
+n_estimators: 100
+max_depth: 3
+learning_rate: 0.1
+objective: 'binary:logistic'
+booster: 'gbtree'
+tree_method: 'auto'
+n_jobs: -1

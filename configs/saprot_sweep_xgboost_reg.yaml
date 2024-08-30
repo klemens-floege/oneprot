@@ -1,0 +1,37 @@
+# saprot_sweep.yaml
+
+defaults:
+  - _self_
+  - downstream_model: xgboost_reg
+  - override hydra/sweeper: basic
+
+evaluate_on: ["train", "valid", "test"]
+emb_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/
+
+results_dir: /p/project/hai_oneprot/merdivan1/oneprot/results/
+
+sort_by: accuracy
+
+hydra:
+  sweeper:
+    params:
+      +threshold: .inf
+      ++downstream_model.max_depth: 5, 9
+      ++downstream_model.learning_rate: 0.1, 0.3
+      ++downstream_model.min_child_weight: 1, 3
+      ++downstream_model.n_estimators: 500, 1000
+      ++downstream_model.gamma: 0, 0.1
+      ++downstream_model.subsample: 0.8
+      ++downstream_model.colsample_bytree: 0.8, 1.0
+      ++downstream_model.reg_alpha: 0, 0.1
+      ++downstream_model.reg_lambda: 10
+      +model_type: oneprot
+      +task_name: ThermoStability
+
+
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

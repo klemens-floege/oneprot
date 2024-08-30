@@ -1,7 +1,8 @@
-""" huggingface model adapter
+"""huggingface model adapter
 
 Wraps HuggingFace transformers (https://github.com/huggingface/transformers) models for use as a text tower in CLIP model.
 """
+
 import re
 
 import torch
@@ -9,29 +10,35 @@ import torch.nn as nn
 from torch import TensorType
 
 from src.models.components.layers import LearnableLogitScaling, Normalize
-from peft import get_peft_config, PeftModel, PeftConfig, get_peft_model, LoraConfig, TaskType
+from peft import (
+    get_peft_config,
+    PeftModel,
+    PeftConfig,
+    get_peft_model,
+    LoraConfig,
+    TaskType,
+)
 
-try:
-    import transformers
-    from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
-    from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
-        BaseModelOutputWithPoolingAndCrossAttentions
-
-except ImportError as e:
-    transformers = None
+from src.models.components.pooling import (
+    MeanPoolingHead,
+    LightAttentionPoolingHead,
+    Attention1dPoolingHead,
+)
 
 
-    class BaseModelOutput:
-        pass
-
-
-    class PretrainedConfig:
-        pass
+import transformers
+from transformers import AutoModel, AutoConfig, PretrainedConfig
+from transformers.modeling_outputs import (
+    BaseModelOutput,
+    BaseModelOutputWithPooling,
+    BaseModelOutputWithPoolingAndCrossAttentions,
+)
+from peft import LoraConfig, TaskType, get_peft_model
 
 
 # utils
 def _camel2snake(s):
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', s).lower()
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", s).lower()
 
 
 # TODO: ?last - for gpt-like models
@@ -53,13 +60,13 @@ class MeanPooler(nn.Module):
         return masked_output.sum(dim=1) / attention_mask.sum(-1, keepdim=True)
 
 
-@register_pooler
-class MaxPooler(nn.Module):
-    """Max pooling"""
+# @register_pooler
+# class MaxPooler(nn.Module):
+#     """Max pooling"""
 
-    def forward(self, x: BaseModelOutput, attention_mask: TensorType):
-        masked_output = x.last_hidden_state.masked_fill(attention_mask.unsqueeze(-1), -torch.inf)
-        return masked_output.max(1).values
+#     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
+#         masked_output = x.last_hidden_state.masked_fill(attention_mask.unsqueeze(-1), -torch.inf)
+#         return masked_output.max(1).values
 
 
 @register_pooler
@@ -72,9 +79,16 @@ class ClsPooler(nn.Module):
         self.use_pooler_output = use_pooler_output
 
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
-        if (self.use_pooler_output and
-            isinstance(x, (BaseModelOutputWithPooling, BaseModelOutputWithPoolingAndCrossAttentions)) and
-            (x.pooler_output is not None)
+        if (
+            self.use_pooler_output
+            and isinstance(
+                x,
+                (
+                    BaseModelOutputWithPooling,
+                    BaseModelOutputWithPoolingAndCrossAttentions,
+                ),
+            )
+            and (x.pooler_output is not None)
         ):
             return x.pooler_output
 
@@ -97,69 +111,129 @@ class ClsLastHiddenStatePooler(nn.Module):
 
 class SequenceModel(nn.Module):
     """HuggingFace model adapter"""
+
     output_tokens: torch.jit.Final[bool]
 
     def __init__(
-            self,
-            model_name_or_path: str,
-            output_dim: int,
-            config: PretrainedConfig = None,
-            pooler_type: str= 'mean_pooler',
-            proj: str = None,
-            use_logit_scale: str = None,
-            pretrained: bool = True,
+        self,
+        model_name_or_path: str,
+        output_dim: int,
+        config: PretrainedConfig = None,
+        pooler_type: str = "mean_pooler",
+        proj: str = None,
+        use_logit_scale: str = None,
+        pretrained: bool = True,
+        use_lora: bool = True,
+        lora_r: int = 8,
+        lora_alpha: int = 16,
+        lora_dropout: int = 0.1,
+        target_modules: list = ["query", "key", "value"],
+        frozen: bool = True,
     ):
         super().__init__()
+        self.use_lora = use_lora
         self.output_dim = output_dim
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
+        self.target_modules = target_modules
+        self.pooler_type = pooler_type
 
         # TODO: find better way to get this information
-        uses_transformer_pooler = (pooler_type == "cls_pooler")
+        uses_transformer_pooler = pooler_type == "cls_pooler"
 
         if transformers is None:
-            raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
+            raise RuntimeError(
+                "Please `pip install transformers` to use pre-trained HuggingFace models"
+            )
         if config is None:
             self.config = AutoConfig.from_pretrained(model_name_or_path)
-            create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
-                AutoModel.from_config, self.config)
-            self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+            create_func, model_args = (
+                (AutoModel.from_pretrained, model_name_or_path)
+                if pretrained
+                else (AutoModel.from_config, self.config)
+            )
+            self.transformer = create_func(
+                model_args, add_pooling_layer=uses_transformer_pooler
+            )
         else:
             self.config = config
             self.transformer = AutoModel.from_config(config)
-      
-        self.transformer.eval()
-        for param in self.transformer.parameters():
-            param.requires_grad = False
 
-        #self.transformer.gradient_checkpointing_enable()
+        if self.use_lora:
+            # prepare for finetuning to OneProt embeddings
+            peft_config = LoraConfig(
+                task_type=TaskType.FEATURE_EXTRACTION,
+                inference_mode=False,
+                r=self.lora_r,
+                lora_alpha=self.lora_alpha,
+                lora_dropout=self.lora_dropout,
+                target_modules=self.target_modules,
+            )
 
-        self.pooler = _POOLERS[pooler_type]()
+            self.transformer = get_peft_model(self.transformer, peft_config)
+            print("LoRA params: ")
+            self.transformer.print_trainable_parameters()
+
+        else:
+            if frozen:
+                self.transformer.eval()
+
+                # Freeze Text Model
+                for param in self.transformer.parameters():
+                    param.requires_grad = False
+
+        # self.transformer.eval()
+
+        #     #Freeze Text Model
+        # for param in self.transformer.parameters():
+        #     param.requires_grad = False
+
+        # self.transformer.gradient_checkpointing_enable()
+        if pooler_type == "cls_pooler":
+            self.pooler = _POOLERS[pooler_type]()
 
         d_model = getattr(self.config, "hidden_size")
+        # if pooler_type == 'mean_pooler':
+        #     self.pooler = MeanPoolingHead(hidden_size=d_model, output_dim=output_dim)
+        if pooler_type == "light_attention_pooler":
+            self.pooler = LightAttentionPoolingHead(
+                hidden_size=d_model, output_dim=output_dim
+            )
+        elif pooler_type == "attention_1d_pooler":
+            self.pooler = Attention1dPoolingHead(
+                hidden_size=d_model, output_dim=output_dim
+            )
+        elif pooler_type == "cls_pooler" or pooler_type == "mean_pooler":
+            self.pooler = _POOLERS[pooler_type]()
+        else:
+            raise ValueError(f"Unknown pooler type: {pooler_type}")
+
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
-        elif proj == 'linear':
+        elif proj == "linear":
             self.proj = nn.Linear(d_model, output_dim, bias=False)
-        
+
         if use_logit_scale:
             self.norm = nn.Sequential(
-                            Normalize(dim=-1), 
-                            LearnableLogitScaling(learnable=True)
-                    )
+                Normalize(dim=-1), LearnableLogitScaling(learnable=True)
+            )
         else:
             self.norm = nn.Sequential(
-                            Normalize(dim=-1), 
-                            LearnableLogitScaling(learnable=False)
-                    )
+                Normalize(dim=-1), LearnableLogitScaling(learnable=False)
+            )
 
     def forward(self, x: TensorType):
         attn_mask = (x != self.config.pad_token_id).long()
         out = self.transformer(input_ids=x, attention_mask=attn_mask)
         pooled_out = self.pooler(out, attn_mask)
-        projected = self.proj(pooled_out)
-        normed = self.norm(projected) 
-        #print(normed.shape,"normed shape sequence!!!!!!!!!!!!")
+        if self.pooler_type == "cls_pooler" or self.pooler_type == "mean_pooler":
+            projected = self.proj(pooled_out)
+            normed = self.norm(projected)
+        else:
+            normed = self.norm(pooled_out)
+        # print(normed.shape,"normed shape sequence!!!!!!!!!!!!")
         return normed
-
 
     @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):
