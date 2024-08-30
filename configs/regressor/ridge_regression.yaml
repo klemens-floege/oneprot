@@ -1,3 +1,0 @@
-_target_: sklearn.linear_model.Ridge
-alpha: 1.0
-random_state: 42

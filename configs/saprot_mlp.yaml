@@ -1,0 +1,38 @@
+# saprot_fit_pytorch.yaml
+
+defaults:
+  - _self_
+  - override hydra/sweeper: basic
+
+evaluate_on: ["train", "valid", "test"]
+emb_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/
+results_dir: /p/project/hai_oneprot/merdivan1/oneprot/results/
+
+
+# Model configuration
+model:
+  input_dim: 1280  # Adjust based on your embedding size
+  hidden_dim: 256
+  learning_rate: 0.001
+  batch_size: 32
+  max_epochs: 10
+  early_stopping_patience: 50
+
+threshold: .inf
+
+task_name: EC
+model_type: esm2
+downstream_model:
+  name: MLP
+# Sweep parameters
+sweep:
+  learning_rate: [0.001]
+  hidden_dim: [128]
+  batch_size: [64]
+  max_epochs: [5]
+  task_name: ["MetalIonBinding","EC","GO-BP","GO-MF","GO-CC","ThermoStability","DeepLoc2","DeepLoc10","TopEnzyme"]
+  model_type: [esm2]
+
+hydra:
+  run:
+    dir: ../outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}

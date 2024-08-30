@@ -1,8 +1,0 @@
-
-
-
-
-learning_rate: 10e-4
-hidden_size: 50
-batch_size: 8
-max_epochs: 100

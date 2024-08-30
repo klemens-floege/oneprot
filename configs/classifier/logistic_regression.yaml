@@ -1,3 +1,0 @@
-_target_: sklearn.linear_model.LogisticRegression
-max_iter: 100
-random_state: 42

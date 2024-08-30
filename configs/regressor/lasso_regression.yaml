@@ -1,4 +1,0 @@
-_target_: sklearn.linear_model.Lasso
-alpha: 1.0
-max_iter: 1000
-random_state: 42

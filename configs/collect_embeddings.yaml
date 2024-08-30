@@ -1,0 +1,85 @@
+defaults:
+  - _self_
+  - model: oneprot
+
+model_name: oneprot
+
+esm_model: facebook/esm2_t33_650M_UR50D
+tokenizer_name: facebook/esm2_t33_650M_UR50D
+
+
+# Checkpoint path (optional)
+ckpt_path: /p/project1/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-08-24__23:37:43/epoch_100_pocket_struct_text_1d_1d-v3.ckpt
+#/p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-06-30__16:47:04/last.ckpt
+# Output directory
+output_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/${model_name}
+
+# Data processing parameters
+batch_size: 32
+num_workers: 4
+
+# GPU configuration
+num_gpus: 4
+num_nodes: 2
+
+tasks:
+  GO-BP:
+    label_type: "multi-label"
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_test.csv
+  GO-CC:
+    label_type: "multi-label"
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_test.csv
+  GO-MF:
+    label_type: "multi-label"
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_test.csv
+  
+  EC:
+    label_type: "multi-label"
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_test.csv
+  TopEnzyme:
+    label_type: classification
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_train_seq.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_valid_seq.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_test_seq.csv
+
+  MetalIonBinding:
+    label_type: classification
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_test.csv
+    #model_name: "facebook/esm2_t33_650M_UR50D"  # Optional, overrides default_model_name
+  
+  DeepLoc2:
+    label_type: classification
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_test.csv
+  
+  DeepLoc10:
+    label_type: classification
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_test.csv
+
+  ThermoStability:
+    label_type: regression
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_test.csv

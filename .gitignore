@@ -148,13 +148,16 @@ dmypy.json
 *.h5
 *.tar
 *.tar.gz
-
+*.pt
+*.npy
 # Lightning-Hydra-Template
 configs/local/default.yaml
 /data/
 /logs/
+lightning_logs/
+multirun/
 .env
-
+*.csv
 # Aim logging
 .aim
 /slurms/

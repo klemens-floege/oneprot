@@ -1,405 +1,334 @@
-from typing import Tuple
-from pathlib import Path
-
-import numpy as np
-import pandas as pd
-import ast
-
-import tqdm
-import h5py
+from typing import Dict
+import torch
 import hydra
 from omegaconf import DictConfig
- 
-import torch
+from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, RichProgressBar, ModelCheckpoint
+from pytorch_lightning import LightningDataModule
 import torch.nn as nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
-from torch.utils.data import Dataset, DataLoader
-from torch_geometric.data import Batch
-from transformers import AutoTokenizer
-
-import torchmetrics
-import pytorch_lightning as pl
-from torch.utils.data import DataLoader, TensorDataset
-
-
-
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, mean_squared_error, r2_score
-
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from itertools import product
+from sklearn.metrics import mean_squared_error, r2_score
 from scipy.stats import spearmanr
+import os
+import sys
+
+# Get the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add the current directory and its parent to the Python path
+sys.path.insert(0, current_dir)
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
 
 
-import pyrootutils
-pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+from utils.downstream_utils import save_results_to_csv, load_data, count_f1_max
 
 
-class MLP(nn.Module):
-    def __init__(self, input_size, hidden_size, num_labels, dropout_rate=0.5):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
+class EmbeddingDataset(Dataset):
+    def __init__(self, embeddings, targets):
+        self.embeddings = embeddings
+        self.targets = targets
+
+    def __len__(self):
+        return len(self.embeddings)
+
+    def __getitem__(self, idx):
+        return self.embeddings[idx], self.targets[idx]
+
+
+class EmbeddingDataModule(LightningDataModule):
+    def __init__(self, cfg: DictConfig):
+        super().__init__()
+        self.cfg = cfg
+        self.data = {}
+
+    def setup(self, stage=None):
+        all_inputs = load_data(self.cfg)
+        for partition in self.cfg.evaluate_on:
+            self.data[partition] = EmbeddingDataset(
+                all_inputs[f"{partition}_emb"], all_inputs[f"{partition}_target"]
+            )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.data["train"], batch_size=self.cfg.model.batch_size, shuffle=True
+        )
+
+    def val_dataloader(self):
+        return DataLoader(self.data["valid"], batch_size=self.cfg.model.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.data["test"], batch_size=self.cfg.model.batch_size)
+
+
+class MLPHead(nn.Module):
+    def __init__(self, input_dim, output_dim, hidden_dim=256, dropout_rate=0.25):
+        super().__init__()
         self.dropout = nn.Dropout(dropout_rate)
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.out_proj = nn.Linear(hidden_size, num_labels)
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.dropout(x)
-        x = torch.tanh(self.dense(x))
-        x = self.dropout(x)
-        logits = self.out_proj(x)
-        return logits
-    
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)  # Mid-layer dropout
+        return self.fc2(x)
 
 
-class MLPClassifier(pl.LightningModule):
-    def __init__(self, input_size, hidden_size, num_labels, learning_rate=1e-3, dropout_rate=0.5):
-        super(MLPClassifier, self).__init__()
-        self.model = MLP(input_size, hidden_size, num_labels, dropout_rate)
-        self.learning_rate = learning_rate
-        #self.loss_fn = nn.CrossEntropyLoss()
-        self.loss_fn = nn.BCEWithLogitsLoss()  # Change to BCEWithLogitsLoss
-        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
-        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
-        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_labels)
-        self.test_logits = []  # Add this line
+class EvaluationModule(pl.LightningModule):
+    def __init__(self, cfg: DictConfig):
+        super().__init__()
+        self.cfg = cfg
+        self.save_hyperparameters()
 
+        if cfg.model_type == "esm2":
+            input_dim = 1280
+        else:
+            input_dim = 1024
 
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2"]:
+            output_dim = 1
+            self.loss_fn = F.binary_cross_entropy_with_logits
+        elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
+            if self.cfg.task_name == "EC":
+                output_dim = 585
+            elif self.cfg.task_name == "GO-BP":
+                output_dim = 1943
+            elif self.cfg.task_name == "GO-MF":
+                output_dim = 489
+            elif self.cfg.task_name == "GO-CC":
+                output_dim = 320
+
+            self.loss_fn = F.binary_cross_entropy_with_logits
+        elif self.cfg.task_name in ["ThermoStability"]:
+            output_dim = 1
+            self.loss_fn = F.mse_loss
+        else:  # multi_class
+            if self.cfg.task_name in ["TopEnzyme"]:
+                output_dim = 826
+            elif self.cfg.task_name in ["DeepLoc10"]:
+                output_dim = 10
+            self.loss_fn = F.cross_entropy
+
+        self.model = MLPHead(input_dim, output_dim, cfg.model.hidden_dim)
 
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
-        y = y.float()  # Ensure targets are of type Long
-        loss = self.loss_fn(logits, y)
-        self.log('train_loss', loss)
-        self.log('train_acc', self.train_acc(logits, y))
+        y_hat = self(x)
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "ThermoStability"]:
+            y_hat = y_hat.squeeze(1)
+            y = y.float()
+        elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
+            y_hat = y_hat.float()
+            y = y.float()
+
+        loss = self.loss_fn(y_hat, y)
+        self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
-        y = y.float()  # Ensure targets are of type Long
-        loss = self.loss_fn(logits, y)
-        self.log('val_loss', loss)
-        self.log('val_acc', self.val_acc(logits, y))
-        return loss
+        y_hat = self(x)
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "ThermoStability"]:
+            y_hat = y_hat.squeeze(1)
+            y = y.float()
+        elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
+            y_hat = y_hat.float()
+            y = y.float()
+        loss = self.loss_fn(y_hat, y)
+        self.log("val_loss", loss)
 
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-        logits = self(x)
-        y = y.float()  # Ensure targets are of type Long
-        loss = self.loss_fn(logits, y)
-        self.log('test_loss', loss)
-        self.log('test_acc', self.test_acc(logits, y))
-        self.test_logits.append(logits)  # Collect logits during test
-        return loss
+    def on_validation_epoch_end(self):
+        avg_val_loss = self.trainer.callback_metrics["val_loss"]
+        self.log("val_loss_epoch", avg_val_loss, prog_bar=True)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.cfg.model.learning_rate
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.1, patience=10, verbose=True
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
 
-    def on_test_epoch_start(self):
-        self.test_logits = []  # Reinitialize as an empty list at the start of the test epoch
-    
-    def on_test_epoch_end(self):
-        self.test_logits = torch.cat(self.test_logits, dim=0)  # Concatenate logits at the end of testing
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, y = batch
+        y_hat = self(x)
 
-    
-def get_dataloaders(train_data, val_data, test_data, batch_size=32):
-    train_x, train_y = train_data
-    val_x, val_y = val_data
-    test_x, test_y = test_data
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2"]:
+            y_hat = y_hat.squeeze(1)
+            preds = torch.sigmoid(y_hat)
+        elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
+            preds = torch.sigmoid(y_hat)
+        elif self.cfg.task_name in ["ThermoStability"]:
+            preds = y_hat.squeeze(
+                1
+            )  # For regression, we don't need to apply any activation
+        else:  # multi_class
+            preds = torch.softmax(y_hat, dim=1)
+            preds = torch.argmax(preds, dim=1)
 
-    train_dataset = TensorDataset(torch.tensor(train_x, dtype=torch.float32), torch.tensor(train_y, dtype=torch.long))
-    val_dataset = TensorDataset(torch.tensor(val_x, dtype=torch.float32), torch.tensor(val_y, dtype=torch.long))
-    test_dataset = TensorDataset(torch.tensor(test_x, dtype=torch.float32), torch.tensor(test_y, dtype=torch.long))
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size)
-
-    return train_loader, val_loader, test_loader
-
-
-def count_f1_max(pred, target): 
-	"""
-	    F1 score with the optimal threshold, Copied from TorchDrug.
-
-	    This function first enumerates all possible thresholds for deciding positive and negative
-	    samples, and then pick the threshold with the maximal F1 score.
-
-	    Parameters:
-	        pred (Tensor): predictions of shape :math:`(B, N)`
-	        target (Tensor): binary targets of shape :math:`(B, N)` 
-    """
-    
-	order = pred.argsort(descending=True, dim=1)
-	target = target.gather(1, order)
-	precision = target.cumsum(1) / torch.ones_like(target).cumsum(1)
-	recall = target.cumsum(1) / (target.sum(1, keepdim=True) + 1e-10)
-	is_start = torch.zeros_like(target).bool()
-	is_start[:, 0] = 1
-	is_start = torch.scatter(is_start, 1, order, is_start)
-
-	
-	all_order = pred.flatten().argsort(descending=True)
-	order = order + torch.arange(order.shape[0], device=order.device).unsqueeze(1) * order.shape[1]
-	order = order.flatten()
-	inv_order = torch.zeros_like(order)
-	inv_order[order] = torch.arange(order.shape[0], device=order.device)
-	is_start = is_start.flatten()[all_order]
-	all_order = inv_order[all_order]
-	precision = precision.flatten()
-	recall = recall.flatten()
-	all_precision = precision[all_order] - \
-	                torch.where(is_start, torch.zeros_like(precision), precision[all_order - 1])
-	all_precision = all_precision.cumsum(0) / is_start.cumsum(0)
-	all_recall = recall[all_order] - \
-	             torch.where(is_start, torch.zeros_like(recall), recall[all_order - 1])
-	all_recall = all_recall.cumsum(0) / pred.shape[0]
-	all_f1 = 2 * all_precision * all_recall / (all_precision + all_recall + 1e-10)
-	return all_f1.max()
-
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
-    print(cfg)
-    output_dir = Path(cfg.output_dir) / cfg.task_name
-    all_inputs = dict()
-
-    for partition in cfg.evaluate_on:
-        partition_dir = output_dir / partition
-        seq_embs_list = []
-        mod_embs_list = []
-        targets_list = []
-        
-        # Iterate through subfolders in the partition directory
-        for k, subfolder in tqdm.tqdm(enumerate(partition_dir.iterdir())):
-            if subfolder.is_dir():
-                file_range = subfolder.glob("*.npy")
-                file_range = [int(f.stem.split("_")[0]) for f in file_range]
-                file_range = sorted(list(set(file_range)))
-                for idx in file_range:
-                    seq_embs_list.append(np.load(subfolder / f"{idx}_seq.npy"))
-                    if cfg.fit_classifier_on in ["struct", "both"]:
-                        mod_embs_list.append(np.load(subfolder / f"{idx}_mod.npy"))
-                    targets_list.append(np.load(subfolder / f"{idx}_target.npy"))
-
-        # Concatenate embeddings if there are multiple files
-        seq_embs = np.concatenate(seq_embs_list, axis=0)
-        targets = np.concatenate(targets_list, axis=0)
-
-        if cfg.fit_classifier_on in ["struct", "both"]:
-            mod_embs = np.concatenate(mod_embs_list, axis=0)
-            print(partition, seq_embs.shape, mod_embs.shape, targets.shape)
-        else:
-            print(partition, seq_embs.shape, targets.shape)
+        return preds, y
 
 
-        if cfg.fit_classifier_on == "seq":
-            embeddings = seq_embs
-        elif cfg.fit_classifier_on == "struct":
-            embeddings = mod_embs
-        elif cfg.fit_classifier_on == "both":
-            embeddings = np.concatenate([seq_embs, mod_embs], axis=1)
-        else:
-            raise NotImplementedError
+def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
+    model = EvaluationModule(cfg)
 
-        # Convert targets to numeric values if they are in string format
-        if isinstance(targets[0], str):
-            targets = np.array([ast.literal_eval(t) for t in targets], dtype=np.float64)
-        else:
-            targets = np.array(targets, dtype=np.float64)
-
-        # Ensure targets are one-dimensional or retain their original shape if they are one-hot encoded
-        if targets.ndim == 1:
-            targets = targets.squeeze()
-        else:
-            targets = targets
-        
-        
-        # Convert targets to integer labels
-        targets = targets.astype(int)
-
-        print(f"Shape of embeddings: {embeddings.shape}")
-        print(f"Shape of targets: {targets.shape}")
-
-        # Create a mask to filter out rows with NaN values in embeddings and targets
-        nan_mask_embeddings = ~np.isnan(embeddings).any(axis=1)
-        nan_mask_targets = ~np.isnan(targets)
-
-        #nan_mask = nan_mask_embeddings & nan_mask_targets
-
-        # Apply the mask to filter out rows with NaN values
-        #embeddings = embeddings[nan_mask]
-        #targets = targets[nan_mask]
-
-        
-
-        all_inputs[f"{partition}_emb"] = embeddings
-        all_inputs[f"{partition}_target"] = targets
-
-    task_type = None
-
-    train_data = (all_inputs["train_emb"], all_inputs["train_target"])
-    val_data = (all_inputs["val_emb"], all_inputs["val_target"])
-    test_data = (all_inputs["test_emb"], all_inputs["test_target"])
-
-    train_loader, val_loader, test_loader = get_dataloaders(train_data, val_data, test_data, batch_size=cfg.classifier.batch_size)
-
-
-    if cfg.task_name in ["MetalIonBinding", "GO_MF", "GO_CC", "GO_BP", "EC", "DeepLoc_cls2", "DeepLoc_cls10", "HumanPPI"]:
-        task_type = 'classification'
-
-        if cfg.task_name in ["GO_BP", "GO_MF", "GO_CC", "EC"]:
-
-            # Instantiate model
-            input_size = train_data[0].shape[1]
-            hidden_size = cfg.classifier.hidden_size
-            label2num = {"EC": 585, "GO_BP": 1943, "GO_MF": 489, "GO_CC": 320}
-            num_labels = label2num[cfg.task_name]
-            learning_rate =cfg.classifier.learning_rate
-
-            classifier = MLPClassifier(input_size, hidden_size, num_labels, learning_rate=learning_rate)
-            
-            # Train the model
-            
-            trainer = pl.Trainer(
-                max_epochs=cfg.classifier.max_epochs,
-                accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-                devices=1 if torch.cuda.is_available() else None
-            )
-            trainer.fit(classifier, train_loader, val_loader)
-    
-
-        else: 
-            classifier = hydra.utils.instantiate(cfg.classifier)
-            classifier.fit(all_inputs["train_emb"], all_inputs["train_target"])
-
-    elif cfg.task_name in ["Thermostability"]:
-        task_type = 'regression'
-        regressor = hydra.utils.instantiate(cfg.regressor)
-        regressor.fit(all_inputs["train_emb"], all_inputs["train_target"])
+    # Determine the accelerator and devices based on GPU availability
+    if torch.cuda.is_available():
+        accelerator = "gpu"
+        fit_devices = "auto"
+        predict_devices = 1
     else:
-        print("Task name not configured")
-        raise Exception
+        accelerator = "cpu"
+        fit_devices = 1
+        predict_devices = 1
 
-    
-    # train the classifier
-    if task_type == 'classification':
+    early_stop_callback = EarlyStopping(
+        monitor="val_loss",
+        patience=cfg.model.early_stopping_patience,
+        mode="min",
+        verbose=True,
+        log_rank_zero_only=True,
+    )
 
-        results = {}
+    # Trainer for fitting (multi-GPU if available, otherwise CPU)
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss_epoch",
+        mode="min",
+        save_top_k=1,
+        save_last=True,
+        filename="best-checkpoint",
+    )
 
-        for partition in ["val", "test"]:
-            print(f"Inference on {partition}...")
-            
+    fit_trainer = pl.Trainer(
+        max_epochs=cfg.model.max_epochs,
+        accelerator=accelerator,
+        devices=fit_devices,
+        strategy="auto",
+        callbacks=[early_stop_callback, RichProgressBar(), checkpoint_callback],
+    )
 
-            if cfg.task_name in ["GO_BP", "GO_MF", "GO_CC", "EC"]:
-                
-                trainer.test(classifier, dataloaders=test_loader if partition == 'test' else val_loader)
+    fit_trainer.fit(model, data_module)
 
+    # Load the best model
+    best_model_path = checkpoint_callback.best_model_path
+    model = EvaluationModule.load_from_checkpoint(best_model_path)
 
-                y_pred_logits = classifier.test_logits  # Extract logits
-                #y_pred_proba = torch.softmax(torch.tensor(y_pred_logits), dim=1) # Convert logits to probabilities
-                y_pred_proba = torch.sigmoid(torch.tensor(y_pred_logits))  # Correct for multi-label
+    # Trainer for prediction (single GPU if available, otherwise CPU)
+    predict_trainer = pl.Trainer(
+        accelerator=accelerator,
+        devices=predict_devices,
+        strategy="auto",
+    )
 
-                _pred_proba = torch.softmax(y_pred_logits, dim=1).cpu().numpy()  # Move logits to CPU and convert to probabilities
-                
+    results = {}
+    for partition in ["valid", "test"]:
+        if partition == "valid":
+            predictions = predict_trainer.predict(model, data_module.val_dataloader())
+        else:
+            predictions = predict_trainer.predict(
+                model, getattr(data_module, f"{partition}_dataloader")()
+            )
 
-                label2num = {"EC": 585, "GO_BP": 1943, "GO_MF": 489, "GO_CC": 320}
-                num_classes = label2num[cfg.task_name]
-  
+        if cfg.task_name in ["MetalIonBinding", "DeepLoc2"]:
+            y_pred = torch.cat([p[0] for p in predictions]).cpu().numpy()
+            y_true = torch.cat([p[1] for p in predictions]).cpu().numpy()
+            accuracy = accuracy_score(y_true, y_pred > 0.5)
+            f1_micro = f1_score(y_true, y_pred > 0.5, average="micro")
+            auc = roc_auc_score(y_true, y_pred)
+            results[f"{partition}_accuracy"] = accuracy
 
-                y_pred_tensor = torch.tensor(y_pred_proba)
-                print("y_pred_tensor shape ", y_pred_tensor.shape)
-                
-                target_tensor = torch.tensor(all_inputs[f"{partition}_target"])  # Add batch dimension
-                # Find unique elements and their count
-                unique_elements = torch.unique(target_tensor)
-                num_unique_elements = unique_elements.size(0)
-                max_element = torch.max(target_tensor)
-                print(f"Number of unique elements: {num_unique_elements}")
-                print(f"Maximum element: {max_element.item()}")
+        elif cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
+            y_pred = torch.cat([p[0] for p in predictions]).cpu()
+            y_true = torch.cat([p[1] for p in predictions]).cpu()
+            f1_max = count_f1_max(y_pred, y_true)
+            results[f"{partition}_f1_max"] = f1_max
 
-                print("y_pred_tensor ", y_pred_tensor[:5])
-                print("target_tensor ", target_tensor[:5])
+        elif cfg.task_name in ["ThermoStability"]:
+            y_pred = torch.cat([p[0] for p in predictions]).cpu().numpy()
+            y_true = torch.cat([p[1] for p in predictions]).cpu().numpy()
+            mse = mean_squared_error(y_true, y_pred)
+            r2 = r2_score(y_true, y_pred)
+            spearman_rho, _ = spearmanr(y_true, y_pred)
+            results[f"{partition}_spearman_rho"] = spearman_rho
 
-                #target_tensor_one_hot = F.one_hot(target_tensor, num_classes=num_classes).float()
+        else:  # multi_class
+            y_pred = torch.cat([p[0] for p in predictions]).cpu().numpy()
+            y_true = torch.cat([p[1] for p in predictions]).cpu().numpy()
+            accuracy = accuracy_score(y_true, y_pred)
+            f1_micro = f1_score(y_true, y_pred, average="micro")
 
-                # Ensure correct reshaping for count_f1_max
-                y_pred_reshaped = y_pred_tensor.view(-1, num_classes)
-                target_reshaped = target_tensor.view(-1, num_classes)
+            results[f"{partition}_accuracy"] = accuracy
+            results[f"{partition}_f1_micro"] = f1_micro
 
-                 # Move tensors to the same device (CPU) before calling count_f1_max
-                y_pred_reshaped = y_pred_reshaped.cpu()
-                target_reshaped = target_reshaped.cpu()
-
-
-                print("y_pred_tensor shape ", y_pred_reshaped.shape)
-                print("target_tensor shape ", target_reshaped.shape)
-                print("y_pred_tensor ", y_pred_reshaped[:5])
-                print("target_tensor ", target_reshaped[:5])
-                #score = count_f1_max(torch.tensor(y_pred).view(1,-1), torch.tensor(all_inputs[f"{partition}_target"]).view(1,-1))
-                score = count_f1_max(y_pred_reshaped, target_reshaped)
-                print(f"{partition} Fmax Score: {score.item():.4f}")
-                results[f"{partition}_fmax"] = score.item()
-
-            else:
-                y_pred = classifier.predict(all_inputs[f"{partition}_emb"])
-                # Evaluate classifier
-                accuracy = accuracy_score(all_inputs[f"{partition}_target"], y_pred)
-                f1_micro = f1_score(all_inputs[f"{partition}_target"], y_pred, average='micro')
-                f1_macro = f1_score(all_inputs[f"{partition}_target"], y_pred, average='macro')
-                conf_matrix = confusion_matrix(all_inputs[f"{partition}_target"], y_pred)
-
-                print(f"{partition} Accuracy: {accuracy:.4f}")
-                print(f"{partition} F1 Score (Micro): {f1_micro:.4f}")
-                print(f"{partition} F1 Score (Macro): {f1_macro:.4f}")
-                print(f"{partition} Confusion Matrix:\n{conf_matrix}")
-
-
-                #misclassified_idx = [i for i, (true, pred) in enumerate(zip(all_inputs[f"{partition}_target"], y_pred)) if true != pred]
-                #print(f"{partition} Misclassified indices: {misclassified_idx}")
-
-                results[f"{partition}_accuracy"] = accuracy
-                results[f"{partition}_f1_micro"] = f1_micro
-                results[f"{partition}_f1_macro"] = f1_macro
-                results[f"{partition}_conf_matrix"] = conf_matrix
-
-   
-
-    else: 
-        for partition in ["val", "test"]:
-            print(f"Inference on {partition}...")
-            y_pred = regressor.predict(all_inputs[f"{partition}_emb"])
-
-            mse = mean_squared_error(all_inputs[f"{partition}_target"], y_pred)
-            r2 = r2_score(all_inputs[f"{partition}_target"], y_pred)
-            spearman_rho, _ = spearmanr(all_inputs[f"{partition}_target"], y_pred)
-
-            print(f"{partition} Mean Squared Error: {mse:.4f}")
-            print(f"{partition} R2 Score: {r2:.4f}")
-            print(f"{partition} Spearman's Rank Correlation Coefficient: {spearman_rho:.4f}")
+    return results
 
 
-
-@hydra.main(version_base="1.3", config_path="../configs", config_name="saprot.yaml")
+@hydra.main(
+    version_base="1.3",
+    config_path="../configs",
+    config_name="saprot_mlp.yaml",
+)
 def main(cfg: DictConfig) -> None:
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
+    else:
+        print("CUDA is not available. Running on CPU.")
 
-    print('taskname: ', cfg.task_name)
+    # Generate all combinations of hyperparameters
+    param_combinations = product(
+        cfg.sweep.learning_rate,
+        cfg.sweep.hidden_dim,
+        cfg.sweep.batch_size,
+        cfg.sweep.max_epochs,
+        cfg.sweep.task_name,
+        cfg.sweep.model_type,
+    )
 
-    # Access the classifier configuration
-    classifier_cfg = cfg.classifier
+    for (
+        lr,
+        hidden_dim,
+        batch_size,
+        max_epochs,
+        task_name,
+        model_type,
+    ) in param_combinations:
+        # Update the configuration with the current hyperparameters
+        cfg.model.learning_rate = lr
+        cfg.model.hidden_dim = hidden_dim
+        cfg.model.batch_size = batch_size
+        cfg.model.max_epochs = max_epochs
+        cfg.task_name = task_name
+        cfg.model_type = model_type
 
-    # Example: Print classifier config to ensure it's loaded
-    print("Classifier config:", classifier_cfg)
+        data_module = EmbeddingDataModule(cfg)
+        results = evaluate(cfg, data_module)
 
+        # Save results to CSV using the utility function
+        save_results_to_csv(results, cfg)
 
-    evaluate(cfg)
+        print(f"Results for {task_name}:")
+        print(
+            f"Learning rate: {lr}, Hidden dim: {hidden_dim}, Batch size: {batch_size}, Max epochs: {max_epochs}"
+        )
+        print(results)
+        print("--------------------")
 
 
 if __name__ == "__main__":
