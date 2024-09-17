@@ -1,163 +1,137 @@
-from typing import Any, Dict, Optional, Tuple
-import torch
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
+from typing import List, Optional, Dict, Any
+from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.combined_loader import CombinedLoader
 import os
-from src.data.components.datasets import MSADataset, StructDataset, PocketDataset, TextDataset
+
+from msa_dataset import MSADataset
+from struct_graph_dataset import StructDataset
+from text_dataset import TextDataset
+from struct_token_dataset import StructTokenDataset
 
 class ONEPROTDataModule(LightningDataModule):
-    """Example of LightningDataModule for ONEPROT dataset.
-
-    A DataModule implements 6 key methods:
-        def prepare_data(self):
-            # things to do on 1 GPU/TPU (not on every GPU/TPU in DDP)
-            # download data, pre-process, split, save to disk, etc...
-        def setup(self, stage):
-            # things to do on every process in DDP
-            # load data, set variables, etc...
-        def train_dataloader(self):
-            # return train dataloader
-        def val_dataloader(self):
-            # return validation dataloader
-        def test_dataloader(self):
-            # return test dataloader
-        def teardown(self):
-            # called on every process in DDP
-            # clean up after fit or test
-
-    This allows you to share a full dataset without explaining how to download,
-    split, transform and process the data.
-
-    Read the docs:
-        https://lightning.ai/docs/pytorch/latest/data/datamodule.html
-    """
-
     def __init__(
         self,
         data_dir: str = "/p/scratch/hai_oneprot/Dataset_25_06_24",
-        data_modalities: list = ['sequence','structure','pocket'],
+        data_modalities: List[str] = ["msa", "struct_graph", "text", "struct_token", "pocket"],
         text_tokenizer: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
-        seq_tokenizer: str = "facebook/esm2_t12_35M_UR50D",
-        use_struct_mask: bool = False, 
-        use_struct_coord_noise: bool = False, 
-        use_struct_deform: bool =False,
+        seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D",
+        struct_tokenizer: str = "westlake-repl/SaProt_650M_AF2",
+        use_struct_mask: bool = False,
+        use_struct_coord_noise: bool = False,
+        use_struct_deform: bool = False,
         batch_size: int = 64,
         pin_memory: bool = False,
-        pocket_data_type='h5',
-        seqsim='30ss'
+        seqsim: str = "30ss",
+        msa_depth: int = 100,
+        max_length: int = 1024,
     ):
         super().__init__()
-
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
-        
-        self.num_workers =  int(os.getenv('SLURM_CPUS_PER_TASK'))
         self.save_hyperparameters(logger=False)
-        self.data_modalities = data_modalities
+        
         self.data_dir = data_dir
+        self.data_modalities = data_modalities
         self.seq_tokenizer = seq_tokenizer
         self.text_tokenizer = text_tokenizer
-        self.data_train: Optional[Dataset] = None
-        self.data_val: Optional[Dataset] = None
-        self.data_test: Optional[Dataset] = None
-        self.pocket_data_type = pocket_data_type
-        self.seqsim=seqsim
-
+        self.struct_tokenizer = struct_tokenizer
+        self.seqsim = seqsim
+        
+        self.num_workers = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
+        self.datasets: Dict[str, Any] = {}
 
     def setup(self, stage: Optional[str] = None):
-        """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
-
-        This method is called by lightning with both `trainer.fit()` and `trainer.test()`, so be
-        careful not to execute things like random split twice!
-        """
-        # load and split datasets only if not loaded already
-        if not self.data_train and not self.data_val and not self.data_test:
-            
-            self.datasets = {}
-            self.datasets_collate_fn = {}
+        if not self.datasets:
             for modality in self.data_modalities:
-                
-                if modality == 'struct':
-                    #print(modality," modality")
-                    self.datasets["struct_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform,seqsim=self.seqsim )
-                    self.datasets["struct_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
-                    self.datasets["struct_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
-                  
-                    
-                elif modality == 'msa':
-                    #print(modality," modality")
-                    self.datasets["msa_train"] =  MSADataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
-                    self.datasets["msa_val"] =  MSADataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
-                    self.datasets["msa_test"] =  MSADataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,seqsim=self.seqsim)
-                
-                elif modality == 'pocket':
-                    #print(modality," modality")
-                    # self.datasets["pocket_train"] =  PocketDataset(split='train', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
-                    # self.datasets["pocket_val"] =  PocketDataset(split='val', seq_tokenizer=self.seq_tokenizer,data_type=self.pocket_data_type)
-                    # self.datasets["pocket_test"] =  PocketDataset(split='test', seq_tokenizer=self.seq_tokenizer, data_type=self.pocket_data_type)
-                    self.datasets["pocket_train"] =  StructDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, use_struct_mask=self.hparams.use_struct_mask, use_struct_coord_noise=self.hparams.use_struct_coord_noise, use_struct_deform=self.hparams.use_struct_deform,pockets=True,seqsim=self.seqsim )
-                    self.datasets["pocket_val"] =  StructDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer,pockets=True,seqsim=self.seqsim)
-                    self.datasets["pocket_test"] =  StructDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer,pockets=True,seqsim=self.seqsim)
-              
+                for split in ['train', 'val', 'test']:
+                    dataset_class = self._get_dataset_class(modality)
+                    dataset_kwargs = self._get_dataset_kwargs(modality, split)
+                    self.datasets[f"{modality}_{split}"] = dataset_class(**dataset_kwargs)
+                print(f"{modality} Train/Validation/Test Dataset Size = "
+                      f"{len(self.datasets[f'{modality}_train'])} / "
+                      f"{len(self.datasets[f'{modality}_val'])} / "
+                      f"{len(self.datasets[f'{modality}_test'])}")
 
-                
-                elif modality == 'text':
-                    #print(modality," modality")
-                    self.datasets["text_train"] =  TextDataset(data_dir =self.data_dir, split='train', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
-                    self.datasets["text_val"] =  TextDataset(data_dir =self.data_dir, split='val', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
-                    self.datasets["text_test"] =  TextDataset(data_dir =self.data_dir, split='test', seq_tokenizer=self.seq_tokenizer, text_tokenizer=self.text_tokenizer,seqsim=self.seqsim)
-                
-                print(f"{modality} Train/Validation/Test Dataset Size = {len(self.datasets[f'{modality}_train'])} / {len(self.datasets[f'{modality}_val'])} / {len(self.datasets[f'{modality}_test'])}")
-                
-    def train_dataloader(self):
+    def _get_dataset_class(self, modality: str):
+        if modality == "msa":
+            return MSADataset
+        elif modality == "struct_graph":
+            return StructDataset
+        elif modality == "pocket":
+            return StructDataset
+        elif modality == "text":
+            return TextDataset
+        elif modality == "struct_token":
+            return StructTokenDataset
+        else:
+            raise ValueError(f"Unknown modality: {modality}")
+
+    def _get_dataset_kwargs(self, modality: str, split: str) -> Dict[str, Any]:
+        common_kwargs = {
+            "data_dir": self.data_dir,
+            "split": split,
+            "seqsim": self.hparams.seqsim,
+            "seq_tokenizer": self.hparams.seq_tokenizer,
+        }
+        
+        if modality == "msa":
+            return {
+                **common_kwargs,
+                "max_length": self.hparams.max_length,
+                "msa_depth": self.hparams.msa_depth,
+              
+            }
+        elif modality == "struct_graph":
+            return {
+                **common_kwargs,
+                "use_struct_mask": self.hparams.use_struct_mask,
+                "use_struct_coord_noise": self.hparams.use_struct_coord_noise,
+                "use_struct_deform": self.hparams.use_struct_deform,
+                "pockets": False,
+            }
+        elif modality == "pocket":
+            return {
+                **common_kwargs,
+                "use_struct_mask": self.hparams.use_struct_mask,
+                "use_struct_coord_noise": self.hparams.use_struct_coord_noise,
+                "use_struct_deform": self.hparams.use_struct_deform,
+                "pockets": True,
+            }
+        elif modality == "text":
+            return {
+                **common_kwargs,
+                "text_tokenizer": self.hparams.text_tokenizer,
+            }
+        elif modality == "struct_token":
+            return {
+                **common_kwargs,
+                "struct_tokenizer": self.hparams.struct_tokenizer,
+            }
+        else:
+            raise ValueError(f"Unknown modality: {modality}")
+
+    def _create_dataloader(self, split: str, shuffle: bool = False):
         iterables = {}
         for modality in self.data_modalities:
-        
             iterables[modality] = DataLoader(
-                        dataset=self.datasets[f"{modality}_train"],
-                        batch_size=self.hparams.batch_size,
-                        num_workers=self.num_workers,
-                        pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets[f"{modality}_train"].collate_fn,
-                        shuffle=True,
-                        drop_last=True,
-                    )
+                dataset=self.datasets[f"{modality}_{split}"],
+                batch_size=self.hparams.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=self.hparams.pin_memory,
+                collate_fn=self.datasets[f"{modality}_{split}"].collate_fn,
+                shuffle=shuffle,
+                drop_last=True,
+            )
+        return CombinedLoader(iterables, "min_size" if shuffle else "sequential")
 
-        return CombinedLoader(iterables, 'min_size')
+    def train_dataloader(self):
+        return self._create_dataloader("train", shuffle=True)
 
     def val_dataloader(self):
-        iterables = {}
-        for modality in self.data_modalities:
-            iterables[modality] = DataLoader(
-                        dataset=self.datasets[f"{modality}_val"],
-                        batch_size=self.hparams.batch_size,
-                        num_workers=self.num_workers,
-                        pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets[f"{modality}_val"].collate_fn,
-                        drop_last=True,
-                        shuffle=False,
-                    )
-
-
-        return CombinedLoader(iterables, 'sequential')
+        return self._create_dataloader("val")
 
     def test_dataloader(self):
-        iterables = {}
-        for modality in self.data_modalities:
-        
-            iterables[modality] = DataLoader(
-                        dataset=self.datasets[f"{modality}_test"],
-                        batch_size=self.hparams.batch_size,
-                        num_workers=self.num_workers,
-                        pin_memory=self.hparams.pin_memory,
-                        collate_fn=self.datasets[f"{modality}_test"].collate_fn,
-                        drop_last=True,
-                        shuffle=False,
-                    )
+        return self._create_dataloader("test")
 
-        return CombinedLoader(iterables, 'sequential')
-        
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""
         pass

@@ -1,9 +1,0 @@
-_target_: src.data.oneprot_datamodule_finetune.ONEPROTFinetuneDataModule
-data_dir: "/p/scratch/hai_oneprot/openfoldh5s"
-batch_size: 8
-seq_tokenizer: facebook/esm2_t12_35M_UR50D #"facebook/esm2_t33_650M_UR50D"
-text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t33_650M_UR50D"
-use_struct_coord_noise: True
-use_struct_deform: True
-data_modalities: ['design']
-pin_memory: False
