@@ -1,39 +1,19 @@
 # @package _global_
 
-# specify here default configuration
-# order of defaults determines the order in which configs override each other
 defaults:
-  - _self_
-  - data: oneprot.yaml
-  - model: oneprot.yaml
+  - data: oneprot
+  - model: oneprot
+  - trainer: default
+  - logger: wandb
   - callbacks: default.yaml
-  - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
-  - trainer: default.yaml
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml
+  - _self_
 
-  # experiment configs allow for version control of specific hyperparameters
-  # e.g. best hyperparameters for given model and datamodule
-  - experiment: null
-
-  # config for hyperparameter optimization
-  - hparams_search: null
-
-  # optional local config for machine/user specific settings
-  # it's optional since it doesn't need to exist and is excluded from version control
-  - optional local: default.yaml
-
-  # debugging config (enable through command line, e.g. `python train.py debug=default)
-  - debug: null
-
-# task name, determines output directory path
 task_name: "train"
+tags: ${data.data_modalities}
 
-# tags to help you identify your experiments
-# you can overwrite this in experiment configs
-# overwrite from command line with `python train.py tags="[first_tag, second_tag]"`
-tags: ["dev"]
 
 # set False to skip model training
 train: True
@@ -46,9 +26,7 @@ test: True
 compile: False
 
 # simply provide checkpoint path to resume training
-ckpt_path: null #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-26_01-01-07/checkpoints/last.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-21_19-59-36/checkpoints/last.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-21_02-48-12/checkpoints/epoch_000.ckpt #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-19_09-30-19/checkpoints/last.ckpt
-# #null #/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-15_20-46-41/checkpoints/last.ckpt
-#/p/project/hai_oneprot/bazarova1/oneprot/logs/train/runs/2024-04-18_17-11-50/checkpoints/last.ckpt
+ckpt_path: null 
 
 # seed for random number generators in pytorch, numpy and python.random
-seed: null
+seed: 1881

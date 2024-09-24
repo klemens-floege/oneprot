@@ -1,12 +1,20 @@
-_target_: src.data.oneprot_datamodule.ONEPROTDataModule
-data_dir: "/p/scratch/hai_oneprot/Dataset_25_06_24"
-batch_size: 8
-seq_tokenizer: facebook/esm2_t12_35M_UR50D #"facebook/esm2_t33_650M_UR50D"
-text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext #"facebook/esm2_t33_650M_UR50D"
-use_struct_mask: True
-use_struct_coord_noise: True
-use_struct_deform: True
-data_modalities: ['struct','pocket']
-#data_modalities: ['msa']
-pin_memory: False
-pocket_data_type: "lmdb"
+defaults:
+  - default
+  #- modalities/msa
+  - modalities/pocket
+  - modalities/seqsim
+  - modalities/seqsim_msa
+  - modalities/struct_graph
+  - modalities/struct_token
+  - modalities/text
+  # Add more modalities as needed
+
+data_modalities: 
+  #- msa
+  - pocket
+  - seqsim
+  - seqsim_msa
+  - struct_graph
+  - struct_token
+  - text
+  

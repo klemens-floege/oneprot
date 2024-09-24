@@ -1,5 +1,0 @@
-_target_: src.models.components.msa.MsaModel
-pooler_type: cls_pooler
-proj: linear
-output_dim: 512
-use_logit_scale: False

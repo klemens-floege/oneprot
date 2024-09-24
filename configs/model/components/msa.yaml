@@ -1,0 +1,6 @@
+msa:
+  _target_: src.models.components.msa_encoder.MsaEncoder
+  pooler_type: mean_pooler
+  proj: mlp
+  output_dim: ${..sequence.output_dim}
+  use_logit_scale: False

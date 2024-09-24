@@ -1,16 +1,13 @@
-_target_: src.models.oneprot_module.ONEPROTLitModule
-
 defaults:
-  - network_pocket_structure_text_1d_cls
-  #- network_msa.yaml
-  - _self_
+  - default
+  - components/sequence
+  - components/struct_token
+  - components/struct_graph
+  - components/pocket
+  - components/text
+  - components/msa
 
 loss_fn: CLIP
 local_loss: True
 gather_with_grad: True
-compile: False
-optimizer:
-  _target_: torch.optim.Adam
-  _partial_: true
-  lr: 0.001
-  weight_decay: 0.0
+

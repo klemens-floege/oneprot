@@ -1,7 +1,0 @@
-_target_: src.models.components.sequence.SequenceModel
-model_name_or_path: facebook/esm2_t33_650M_UR50D #"facebook/esm2_t12_35M_UR50D"
-pooler_type: mean_pooler
-proj: linear
-output_dim: 512
-use_logit_scale: False
-config: null

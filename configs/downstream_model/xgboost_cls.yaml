@@ -5,5 +5,6 @@ max_depth: 3
 learning_rate: 0.1
 objective: 'binary:logistic'
 booster: 'gbtree'
-tree_method: 'auto'
+#tree_method: 'auto'
+tree_method: "gpu_hist"
 n_jobs: -1

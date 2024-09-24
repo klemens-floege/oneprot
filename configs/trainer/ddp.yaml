@@ -4,6 +4,6 @@ defaults:
 
 accelerator: gpu
 devices: 4
-num_nodes: 4
+num_nodes: 1
 sync_batchnorm: True
 #timeout: 1000

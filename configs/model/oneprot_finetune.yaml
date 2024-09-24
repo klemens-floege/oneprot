@@ -1,9 +1,0 @@
-_target_: src.models.oneprot_module_finetune.OpenOPTPEFTModel
-
-max_tgt_len: 1050
-pretrained_lm: "facebook/galactica-125M" #"facebook/galactica-6.7B"
-optimizer:
-  _target_: torch.optim.Adam
-  _partial_: true
-  lr: 0.001
-  weight_decay: 0.0

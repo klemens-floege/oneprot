@@ -1,0 +1,10 @@
+text:
+  dataset:
+    #_target_: src.data.datasets.text_dataset.TextDataset
+    data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
+    seq_tokenizer: facebook/esm2_t33_650M_UR50D
+    text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+  batch_size:
+    train: 16
+    val: 32
+    test: 64

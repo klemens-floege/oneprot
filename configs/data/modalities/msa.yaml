@@ -1,0 +1,11 @@
+msa:
+  dataset:
+    #_target_: src.data.datasets.msa_dataset.MSADataset
+    data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
+    seq_tokenizer: facebook/esm2_t33_650M_UR50D
+    max_length: 1024
+    msa_depth: 50
+  batch_size:
+    train: 32
+    val: 64
+    test: 128

@@ -1,0 +1,13 @@
+text:
+  _target_: src.models.components.text_encoder.TextEncoder
+  model_name_or_path: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+  output_dim: ${..sequence.output_dim}
+  pooler_type: mean_pooler
+  proj: mlp
+  use_logit_scale: False
+  use_lora: True
+  lora_r: 4
+  lora_alpha: 8
+  lora_dropout: 0.1
+  lora_target_modules: ['query', 'key', 'value']
+  frozen: True
