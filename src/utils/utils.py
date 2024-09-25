@@ -2,9 +2,9 @@ import warnings
 from importlib.util import find_spec
 from typing import Callable
 from omegaconf import DictConfig, OmegaConf
-
+from pathlib import Path
 from src.utils import pylogger, rich_utils
-
+import json
 log = pylogger.get_pylogger(__name__)
 
 
@@ -38,11 +38,11 @@ def extras(cfg: DictConfig) -> None:
         rich_utils.print_config_tree(cfg, resolve=True, save_to_file=True)
         
     with open(Path(cfg.paths.output_dir, "config.yaml"), "w") as file:          
-        OmegaConf.save(cfg, f)
-    log.info(f"Config saved as YAML: {cfg.paths.output_dir}/config.yaml"})
+        OmegaConf.save(cfg, file)
+    log.info(f"Config saved as YAML: {cfg.paths.output_dir}/config.yaml")
     
     with open(Path(cfg.paths.output_dir, "config.json"), "w") as file:
-        json.dump(OmegaConf.to_container(cfg, resolve=True), f, indent=4)
+        json.dump(OmegaConf.to_container(cfg, resolve=True), file, indent=4)
     log.info(f"Config saved as JSON: {cfg.paths.output_dir}/config.json")
 
 
