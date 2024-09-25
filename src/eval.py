@@ -1,222 +1,211 @@
 import os
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Dict
 
 import tqdm
-import faiss
 import hydra
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
-from torchmetrics.metric import Metric 
-from torchmetrics.utilities.data import dim_zero_cat
-from torch_geometric.data import Batch
 import numpy as np
 from pathlib import Path
 from omegaconf import DictConfig
 
-import multiprocessing as mp
-mp.set_start_method('spawn', force=True)
-
 import pyrootutils
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from src.data.components.datasets import MSADataset, StructDataset, PocketDataset, TextDataset
+# Import dataset classes
+from src.data.datasets import MSADataset, StructDataset, PocketDataset, TextDataset
 
-def identity_map(embedding, cfg):
+def identity_map(embedding: Tensor, cfg: DictConfig) -> Tensor:
+    """Identity function for embeddings."""
     return embedding
 
-def threshold_map(embedding, cfg):
-    dev = embedding.device
-    return torch.where(embedding > cfg.bit_threshold, torch.tensor(1.0).to(dev), torch.tensor(0.0).to(dev))
+def threshold_map(embedding: Tensor, cfg: DictConfig) -> Tensor:
+    """Apply threshold to embeddings, converting them to binary."""
+    return torch.where(embedding > cfg.bit_threshold, 
+                       torch.tensor(1.0, device=embedding.device), 
+                       torch.tensor(0.0, device=embedding.device))
 
+# Mapping of transformation function names to their implementations
 function_map = {
     "identity": identity_map,
     "threshold": threshold_map,
 }
 
+def build_dataloader(cfg: DictConfig, dataset: Dataset) -> DataLoader:
+    """
+    Create a DataLoader for the given dataset.
 
-class FAISSMetric(Metric):
-    is_differentiable: bool = False
-    higher_is_better: bool = True
-    full_state_update: bool = False
-    plot_lower_bound: float = 0.0
-    plot_upper_bound: float = 1.0
+    Args:
+        cfg (DictConfig): Configuration object containing dataloader parameters.
+        dataset (Dataset): The dataset to create a DataLoader for.
 
-    preds: List[Tensor]
-    target: List[Tensor]
-
-    def __init__(self,  **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.add_state("preds", default=[], dist_reduce_fx="cat")
-        self.add_state("target", default=[], dist_reduce_fx="cat")
-
-    def update(self, preds: Tensor, target: Tensor) -> None:
-        self.preds.append(preds.detach())
-        self.target.append(target.detach())
-
-    def compute(self) -> Tensor:
-        pass
-
-    def compute_no_cache(self, k=3) -> Tensor:
-        seq_out = dim_zero_cat(self.preds).detach().cpu().numpy()
-        mod_out = dim_zero_cat(self.target).detach().cpu().numpy()
-        evaluation_targets = [("pred_to_target", seq_out, mod_out), ("target_to_pred", mod_out, seq_out)]
-        metrics = dict()
-
-        for name, input, target in evaluation_targets:
-            index = faiss.IndexFlatL2(input.shape[1])
-            index.add(input)
-            _, I = index.search(target, k)
-            correct = np.array([int(j in i) for j, i in enumerate(I)])
-            metrics[name] =  correct.mean()
-        return metrics
-
-
-class JoinedDataset(Dataset):
-    def __init__(self, csv_file: str, data_config: DictConfig):
-        with open(csv_file, "r") as f:
-            self.data = f.readlines()
-
-        self.data = self.data[1:]
-        self.data = [line.strip().split(",") for line in self.data]
-        # workaround for inconsistent data format
-        if str(csv_file.stem).lower()[:6] == "struct":
-            self.data = [(line[0], line[0], line[1]) for line in self.data]
-        modalities = str(csv_file.stem).lower().split("_")
-        
-        self.datasets = dict()
-        self.modalities = modalities
-        for i, modality in enumerate(modalities):
-            if modality == "struct":
-                self.datasets[modality] = StructDataset(data_dir=data_config.data_dir, split='test', seq_tokenizer=data_config.seq_tokenizer)
-            elif modality == "msa":
-                self.datasets[modality] = MSADataset(data_dir=data_config.data_dir, split='test', seq_tokenizer=data_config.seq_tokenizer)
-            elif modality == "pocket":
-                # self.datasets[modality] = PocketDataset(split='test', seq_tokenizer=data_config.seq_tokenizer, data_type=data_config.pocket_data_type)
-                self.datasets[modality] =  StructDataset(data_dir=data_config.data_dir, split='test', seq_tokenizer=data_config.seq_tokenizer, pockets=True, seqsim='30ss')
-            elif modality == "text":
-                self.datasets[modality] = TextDataset(data_dir=data_config.data_dir, split='test', seq_tokenizer=data_config.seq_tokenizer, text_tokenizer=data_config.text_tokenizer)
-                self.dummy_struct_ds = StructDataset(data_dir=data_config.data_dir, split='test', seq_tokenizer=data_config.seq_tokenizer)
-            else:
-                raise ValueError(f"Unknown modality {modality}")
-            
- 
-    def __len__(self):
-        return len(self.data)
-       
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-    def collate_fn(self, data):
-        uniprot_ids = [d[0] for d in data]
-        modality_data = [d[1:] for d in data]
-
-        output_batch = dict(uniprot_ids=uniprot_ids)
-        for k, mod in enumerate(self.modalities):
-            current_modality_data = [d[k] for d in modality_data]
-            if mod == "text":
-                # we cheat a bit for the sequences that belong to text, we just get them from the structure module :) 
-                # (text doesnt allow access out of the box)
-                sequences = self.dummy_struct_ds.collate_fn(uniprot_ids, return_raw_sequences=True)
-                # we can probably solve this nicer...
-                current_modality_data = [text.strip("\"").strip("[").strip("]").strip("\\").strip("\'") for text in current_modality_data]
-                current_modality_data = list(zip(current_modality_data, sequences))
-
-            modality_batch = self.datasets[mod].collate_fn(current_modality_data)
-            modality_batch = move_batch_to_device(modality_batch)
-            output_batch[mod] = modality_batch
-            
-        return output_batch
-    
-
-def build_dataloader(cfg, dataset):
-    # workaround for Pocket Dataset pickling error
-    num_workers = 0 if "pocket" in dataset.modalities else int(os.getenv('SLURM_CPUS_PER_TASK'))
+    Returns:
+        DataLoader: The created DataLoader object.
+    """
     return DataLoader(
         dataset=dataset,
         batch_size=cfg.batch_size,
-        num_workers=num_workers,
+        num_workers=cfg.num_workers,
         pin_memory=cfg.pin_memory,
         collate_fn=dataset.collate_fn,
         shuffle=False,
         drop_last=False,
     )
 
-def move_batch_to_device(batch):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def evaluate(cfg: DictConfig) -> Dict[str, float]:
+    """
+    Main evaluation function for cross-modality retrieval.
 
-    if isinstance(batch, tuple):
-        batch = list(batch)
-        if isinstance(batch[1], dict):
-            batch[1] = {key: value.to(device) if (torch.is_tensor(value) or isinstance(value, Batch)) else value for key, value in batch[1].items()}
-    if torch.is_tensor(batch):
-        return batch.to(device)
-    elif isinstance(batch, list):
-        return [item.to(device) if (torch.is_tensor(item) or isinstance(item, Batch)) else item for item in batch]
-    else:
-        raise TypeError
+    Args:
+        cfg (DictConfig): Configuration object containing evaluation parameters.
 
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
+    Returns:
+        Dict[str, float]: Dictionary containing retrieval results.
+    """
+    # Load the model from checkpoint
     model = hydra.utils.instantiate(cfg.model)
-    if torch.cuda.is_available():
-        model.load_state_dict(torch.load(cfg.ckpt_path)["state_dict"])
-        model.cuda()
-    else:
-        model.load_state_dict(torch.load(cfg.ckpt_path, map_location="cpu")["state_dict"])
+    checkpoint = torch.load(cfg.ckpt_path, map_location='cpu')
+    model.load_state_dict(checkpoint['state_dict'])
     model.eval()
     
+    if torch.cuda.is_available():
+        model = model.cuda()
 
-    modalities = model.data_modalities
-    modality_files = [file for file in os.listdir(cfg.retrieval_dataset) if file.endswith(".csv")]
+    modalities = model.modalities
     data_file_path = Path(cfg.retrieval_dataset)
     
+    all_embeddings = {}
+    all_sequences = {}
+
+    # Compute embeddings for each modality
     with torch.no_grad():
-        all_retrieval_results = dict()
-        for modality_file in modality_files:
-            modality_tuple = modality_file.lower().split(".")[0].split("_")
-    
-            if len(set(modality_tuple) & set(modalities)) != 2:
-                continue
+        for modality in modalities:
+            dataset = create_dataset(modality, data_file_path, cfg.data)
+            dataloader = build_dataloader(cfg, dataset)
             
-            dataset = JoinedDataset(data_file_path /  modality_file, cfg.data)
-            dataloader = build_dataloader(cfg.data, dataset)
+            embeddings = []
+            sequences = []
             
-            metric_dict = {
-                f"{modality_tuple[0]}_{modality_tuple[1]}": FAISSMetric(), 
-                f"seq_{modality_tuple[0]}": FAISSMetric(), 
-                f"seq_{modality_tuple[1]}": FAISSMetric()}
+            for batch in tqdm.tqdm(dataloader, desc=f"Embedding {modality}"):
+                seq_inputs, mod_inputs, _, batch_sequences = batch
+                seq_features, mod_features = model(seq_inputs, mod_inputs, modality=modality)
+                
+                # Apply transformation function (identity or threshold)
+                seq_features = function_map[cfg.transform_func](seq_features, cfg)
+                mod_features = function_map[cfg.transform_func](mod_features, cfg)
+                
+                embeddings.append(mod_features)
+                sequences.extend(batch_sequences)
             
-            for i, batch in enumerate(tqdm.tqdm(dataloader, desc=f"Collecting {modality_tuple[0]}, {modality_tuple[1]} embeddings")):
-                modality_embeddings = []
-                for modality in modality_tuple:
-                    seq, embs = model(*batch[modality], modality=modality)
-                    seq = function_map[cfg.transform_func](seq, cfg)
-                    embs = function_map[cfg.transform_func](embs, cfg)
-                    modality_embeddings.append(embs)
-                    metric_dict[f"seq_{modality}"].update(seq, embs)
-                metric_dict[f"{modality_tuple[0]}_{modality_tuple[1]}"].update(*modality_embeddings)
-    
-            retrieval_results = dict()
-            for key in metric_dict:
-                for k in cfg.eval_ks:
-                    results = metric_dict[key].compute_no_cache(k=k)
-                    key_parts = key.split("_")
-                    retrieval_results[f"{key_parts[0]}_to_{key_parts[1]}@{k}"] = results["pred_to_target"]
-                    retrieval_results[f"{key_parts[1]}_to_{key_parts[0]}@{k}"] = results["target_to_pred"]
-            print(retrieval_results)
-            all_retrieval_results.update(retrieval_results)
-    return all_retrieval_results
+            # Store embeddings and sequences for each modality
+            all_embeddings[f"sequence_{modality}"] = torch.cat(embeddings)
+            all_embeddings[modality] = torch.cat(embeddings)
+            all_sequences[modality] = sequences
 
+    # Compute cross-modality retrieval metrics
+    retrieval_results = compute_cross_modality_metrics(all_embeddings, all_sequences, cfg.eval_ks)
+    
+    print(retrieval_results)
+    return retrieval_results
 
+def create_dataset(modality: str, data_path: Path, data_config: DictConfig) -> Dataset:
+    """
+    Create a dataset object for the given modality.
+
+    Args:
+        modality (str): The modality to create a dataset for.
+        data_path (Path): Path to the data directory.
+        data_config (DictConfig): Configuration object for dataset creation.
+
+    Returns:
+        Dataset: The created dataset object.
+
+    Raises:
+        ValueError: If an unknown modality is provided.
+    """
+    if modality == "struct_graph":
+        return StructDataset(data_dir=data_path, split='test', seq_tokenizer=data_config.seq_tokenizer)
+    if modality == "struct_token":
+        return StructDataset(data_dir=data_path, split='test', seq_tokenizer=data_config.seq_tokenizer)
+    elif modality == "msa":
+        return MSADataset(data_dir=data_path, split='test', seq_tokenizer=data_config.seq_tokenizer)
+    elif modality == "pocket":
+        return StructDataset(data_dir=data_path, split='test', seq_tokenizer=data_config.seq_tokenizer, pockets=True, seqsim='30ss')
+    elif modality == "text":
+        return TextDataset(data_dir=data_path, split='test', seq_tokenizer=data_config.seq_tokenizer, text_tokenizer=data_config.text_tokenizer)
+    else:
+        raise ValueError(f"Unknown modality {modality}")
+
+def compute_cross_modality_metrics(embeddings: Dict[str, Tensor], sequences: Dict[str, List[str]], k_values: List[int]) -> Dict[str, float]:
+    """
+    Compute cross-modality retrieval metrics for all pairs of modalities.
+
+    Args:
+        embeddings (Dict[str, Tensor]): Dictionary of embeddings for each modality.
+        sequences (Dict[str, List[str]]): Dictionary of sequences for each modality.
+        k_values (List[int]): List of k values for top-k retrieval evaluation.
+
+    Returns:
+        Dict[str, float]: Dictionary of retrieval results for all modality pairs and k values.
+    """
+    results = {}
+    modalities = [mod for mod in embeddings.keys() if not mod.startswith("sequence_")]
+    
+    # Compute metrics for sequence-to-modality and modality-to-sequence
+    for mod in modalities:
+        seq_mod = f"sequence_{mod}"
+        results.update(compute_retrieval_metrics(f"sequence_to_{mod}", embeddings[seq_mod], embeddings[mod], k_values))
+        results.update(compute_retrieval_metrics(f"{mod}_to_sequence", embeddings[mod], embeddings[seq_mod], k_values))
+
+    # Compute metrics for modality-to-modality
+    for i, mod1 in enumerate(modalities):
+        for mod2 in modalities[i+1:]:
+            results.update(compute_retrieval_metrics(f"{mod1}_to_{mod2}", embeddings[mod1], embeddings[mod2], k_values))
+            results.update(compute_retrieval_metrics(f"{mod2}_to_{mod1}", embeddings[mod2], embeddings[mod1], k_values))
+    
+    return results
+
+def compute_retrieval_metrics(name: str, query_embeddings: Tensor, gallery_embeddings: Tensor, k_values: List[int]) -> Dict[str, float]:
+    """
+    Compute retrieval metrics for a pair of query and gallery embeddings.
+
+    Args:
+        name (str): Name of the retrieval task (e.g., "sequence_to_structure").
+        query_embeddings (Tensor): Embeddings of the query items.
+        gallery_embeddings (Tensor): Embeddings of the gallery items.
+        k_values (List[int]): List of k values for top-k retrieval evaluation.
+
+    Returns:
+        Dict[str, float]: Dictionary of retrieval results for different k values.
+    """
+    results = {}
+    # Compute similarity matrix
+    sim_matrix = torch.matmul(query_embeddings, gallery_embeddings.t())
+    
+    for k in k_values:
+        # Get top-k indices
+        top_k = torch.topk(sim_matrix, min(k, sim_matrix.shape[1]), dim=1)[1]
+        # Check if the correct match is in the top-k
+        correct = (top_k == torch.arange(sim_matrix.shape[0]).unsqueeze(1).to(top_k.device)).any(dim=1)
+        # Compute accuracy (Recall@k)
+        accuracy = correct.float().mean().item()
+        results[f"{name}@{k}"] = accuracy
+    return results
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> None:
+    """
+    Main function to run the evaluation script.
+
+    Args:
+        cfg (DictConfig): Hydra configuration object.
+    """
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
     evaluate(cfg)
-
 
 if __name__ == "__main__":
     main()

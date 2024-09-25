@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoConfig
 from src.models.components.base_encoder import BaseEncoder
-from src.models.components.pooling_layers import get_pooler
 from peft import get_peft_model, LoraConfig, TaskType
 from typing import List, Optional
 
@@ -11,8 +10,8 @@ class TextEncoder(BaseEncoder):
         self,
         model_name_or_path: str,
         output_dim: int,
-        pooler_type: str = "mean_pooler",
-        proj: str = "linear",
+        pooling_type: str = "mean",
+        proj_type: str = "linear",
         use_logit_scale: bool = False,
         frozen: bool = False,
         use_lora: bool = False,
@@ -21,8 +20,14 @@ class TextEncoder(BaseEncoder):
         lora_dropout: float = 0.1,
         lora_target_modules: Optional[List[str]] = None,
     ):
-        super().__init__(output_dim, proj, use_logit_scale)
         self.config = AutoConfig.from_pretrained(model_name_or_path)
+        super().__init__(
+            d_model=self.config.hidden_size,
+            output_dim=output_dim,
+            proj_type=proj_type,
+            use_logit_scale=use_logit_scale,
+            pooling_type=pooling_type
+        )
         self.transformer = AutoModel.from_pretrained(model_name_or_path)
         
         if frozen:
@@ -44,11 +49,15 @@ class TextEncoder(BaseEncoder):
             )
             self.transformer = get_peft_model(self.transformer, peft_config)
         
-        self.pooler = get_pooler(pooler_type)(self.config.hidden_size, output_dim)
+        self.use_lora = use_lora
+        self.frozen = frozen
 
     def forward(self, input_ids):
         attention_mask = (input_ids != self.config.pad_token_id).long()
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = self.pooler(outputs.last_hidden_state, attention_mask)
+        pooled_output = self.pooling(outputs.last_hidden_state, attention_mask)
         projected = self.proj(pooled_output)
         return self.norm(projected)
+
+    def extra_repr(self):
+        return f"use_lora={self.use_lora}, frozen={self.frozen}"

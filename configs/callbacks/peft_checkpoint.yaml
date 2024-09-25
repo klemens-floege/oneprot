@@ -1,0 +1,3 @@
+peft_checkpoint:
+    _target_: src.models.components.PeftBestModelCheckpoint
+     dirpath: ${paths.output_dir}/checkpoints

@@ -1,8 +1,7 @@
 import warnings
 from importlib.util import find_spec
 from typing import Callable
-
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from src.utils import pylogger, rich_utils
 
@@ -37,6 +36,18 @@ def extras(cfg: DictConfig) -> None:
     if cfg.extras.get("print_config"):
         log.info("Printing config tree with Rich! <cfg.extras.print_config=True>")
         rich_utils.print_config_tree(cfg, resolve=True, save_to_file=True)
+        
+    with open(Path(cfg.paths.output_dir, "config.yaml"), "w") as file:          
+        OmegaConf.save(cfg, f)
+    log.info(f"Config saved as YAML: {cfg.paths.output_dir}/config.yaml"})
+    
+    with open(Path(cfg.paths.output_dir, "config.json"), "w") as file:
+        json.dump(OmegaConf.to_container(cfg, resolve=True), f, indent=4)
+    log.info(f"Config saved as JSON: {cfg.paths.output_dir}/config.json")
+
+
+
+
 
 
 def task_wrapper(task_func: Callable) -> Callable:

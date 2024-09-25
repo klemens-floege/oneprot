@@ -9,20 +9,28 @@ tokenizer_name: facebook/esm2_t33_650M_UR50D
 
 
 # Checkpoint path (optional)
-ckpt_path: /p/project1/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-08-24__23:37:43/epoch_100_pocket_struct_text_1d_1d-v3.ckpt
+ckpt_path: /p/scratch/hai_oneprot/checkpoints_100924/manual_ckpts/2024-09-12__10:27:58/epoch_172_pocket_struct_text_msa_cls_1d.ckpt
 #/p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-06-30__16:47:04/last.ckpt
 # Output directory
 output_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/${model_name}
 
 # Data processing parameters
 batch_size: 32
-num_workers: 4
+num_workers: 16
 
 # GPU configuration
 num_gpus: 4
-num_nodes: 2
+num_nodes: 1
+single_batch_mode: True
+
 
 tasks:
+  HumanPPI:
+    label_type: "ppi"
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_train.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_valid.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_test.csv
   GO-BP:
     label_type: "multi-label"
     csv_files:

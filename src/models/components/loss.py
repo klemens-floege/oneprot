@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -11,34 +10,40 @@ try:
 except ImportError:
     has_distributed = False
 
+try:
+    import horovod.torch as hvd
+except ImportError:
+    hvd = None
+
 
 def gather_features(
-        sequence_features,
         modality_features,
+        sequence_features,
         local_loss=False,
         gather_with_grad=False,
         rank=0,
-        world_size=1
+        world_size=1,
+        use_horovod=False
 ):
     assert has_distributed, 'torch.distributed did not import correctly, please use a PyTorch version with support.'
     
     # We gather tensors from all gpus
     if gather_with_grad:
-        all_sequence_features = torch.cat(torch.distributed.nn.all_gather(sequence_features), dim=0)
         all_modality_features = torch.cat(torch.distributed.nn.all_gather(modality_features), dim=0)
+        all_sequence_features = torch.cat(torch.distributed.nn.all_gather(sequence_features), dim=0)
     else:
-        gathered_sequence_features = [torch.zeros_like(sequence_features) for _ in range(world_size)]
         gathered_modality_features = [torch.zeros_like(modality_features) for _ in range(world_size)]
-        dist.all_gather(gathered_sequence_features, sequence_features)
+        gathered_sequence_features = [torch.zeros_like(sequence_features) for _ in range(world_size)]
         dist.all_gather(gathered_modality_features, modality_features)
+        dist.all_gather(gathered_sequence_features, sequence_features)
         if not local_loss:
             # ensure grads for local rank when all_* features don't have a gradient
-            gathered_sequence_features[rank] = sequence_features
             gathered_modality_features[rank] = modality_features
-        all_sequence_features = torch.cat(gathered_sequence_features, dim=0)
+            gathered_sequence_features[rank] = sequence_features
         all_modality_features = torch.cat(gathered_modality_features, dim=0)
+        all_sequence_features = torch.cat(gathered_sequence_features, dim=0)
 
-    return all_sequence_features, all_modality_features
+    return all_modality_features, all_sequence_features
 
 
 class ClipLoss(nn.Module):
@@ -50,6 +55,7 @@ class ClipLoss(nn.Module):
             cache_labels=False,
             rank=0,
             world_size=1,
+            use_horovod=False,
     ):
         super().__init__()
         self.local_loss = local_loss
@@ -57,6 +63,7 @@ class ClipLoss(nn.Module):
         self.cache_labels = cache_labels
         self.rank = rank
         self.world_size = world_size
+        self.use_horovod = use_horovod
 
         # cache state
         self.prev_num_logits = 0
@@ -75,35 +82,36 @@ class ClipLoss(nn.Module):
             labels = self.labels[device]
         return labels
 
-    def get_logits(self, sequence_features, modality_features):
-        #print(sequence_features.shape, modality_features.shape," shapes of sequence_features, modality_features!!!!!!!!!!")
+    def get_logits(self, modality_features, sequence_features, logit_scale):
         if self.world_size > 1:
-            all_sequence_features, all_modality_features = gather_features(
-                sequence_features, modality_features,
-                self.local_loss, self.gather_with_grad, self.rank, self.world_size)
+            all_modality_features, all_sequence_features = gather_features(
+                modality_features, sequence_features,
+                self.local_loss, self.gather_with_grad, self.rank, self.world_size, self.use_horovod)
 
             if self.local_loss:
-                logits_per_sequence =  sequence_features @ all_modality_features.T
-                logits_per_modality =  modality_features @ all_sequence_features.T
+                logits_per_modality = logit_scale * modality_features @ all_sequence_features.T
+                logits_per_sequence = logit_scale * sequence_features @ all_modality_features.T
             else:
-                logits_per_sequence =  all_sequence_features @ all_modality_features.T
-                logits_per_modality = logits_per_sequence.T
+                logits_per_modality = logit_scale * all_modality_features @ all_sequence_features.T
+                logits_per_sequence = logits_per_modality.T
         else:
-            logits_per_sequence =  sequence_features @ modality_features.T
-            logits_per_modality =  modality_features @ sequence_features.T
+            logits_per_modality = logit_scale * modality_features @ sequence_features.T
+            logits_per_sequence = logit_scale * sequence_features @ modality_features.T
         
-        return logits_per_sequence, logits_per_modality
+        return logits_per_modality, logits_per_sequence
 
-    def forward(self, sequence_features, modality_features,  output_dict=False):
-        device = sequence_features.device
-        logits_per_sequence, logits_per_modality = self.get_logits(sequence_features, modality_features)
-        labels = self.get_ground_truth(device, logits_per_sequence.shape[0])
+    def forward(self, modality_features, sequence_features, logit_scale, output_dict=False):
+        device = modality_features.device
+        logits_per_modality, logits_per_sequence = self.get_logits(modality_features, sequence_features, logit_scale)
+
+        labels = self.get_ground_truth(device, logits_per_modality.shape[0])
+
         total_loss = (
-            F.cross_entropy(logits_per_sequence, labels) +
-            F.cross_entropy(logits_per_modality, labels)
+            F.cross_entropy(logits_per_modality, labels) +
+            F.cross_entropy(logits_per_sequence, labels)
         ) / 2
-        return {"contrastive_loss": total_loss} if output_dict else total_loss
 
+        return {"contrastive_loss": total_loss} if output_dict else total_loss
 
 def neighbour_exchange(from_rank, to_rank, tensor, group=None):
     tensor_recv = torch.zeros_like(tensor)
@@ -194,10 +202,10 @@ def neighbour_exchange_bidir_with_grad(left_rank, right_rank, tensor_to_left, te
 
 
 class SigLipLoss(nn.Module):
-    """ Sigmoid Loss for Language Image Pre-Training (SigLIP) - https://arxiv.org/abs/2303.15343
+    """ Sigmoid Loss for Language modality Pre-Training (SigLIP) - https://arxiv.org/abs/2303.15343
 
     @article{zhai2023sigmoid,
-      title={Sigmoid loss for language image pre-training},
+      title={Sigmoid loss for language modality pre-training},
       author={Zhai, Xiaohua and Mustafa, Basil and Kolesnikov, Alexander and Beyer, Lucas},
       journal={arXiv preprint arXiv:2303.15343},
       year={2023}
@@ -209,11 +217,14 @@ class SigLipLoss(nn.Module):
             rank=0,
             world_size=1,
             bidir=True,
+            use_horovod=False,
     ):
         super().__init__()
         self.cache_labels = cache_labels
         self.rank = rank
         self.world_size = world_size
+        assert not use_horovod  # FIXME need to look at hvd ops for ring transfers
+        self.use_horovod = use_horovod
         self.bidir = bidir
 
         # cache state FIXME cache not currently used, worthwhile?
@@ -226,74 +237,75 @@ class SigLipLoss(nn.Module):
             labels = 2 * torch.eye(num_logits, device=device, dtype=dtype) + labels
         return labels
 
-    def get_logits(self, sequence_features, modality_features, logit_bias=None):
-        logits =  sequence_features @ modality_features.T
+    def get_logits(self, modality_features, sequence_features, logit_scale, logit_bias=None):
+        logits = logit_scale * modality_features @ sequence_features.T
         if logit_bias is not None:
             logits += logit_bias
         return logits
 
-    def _loss(self, sequence_features, modality_features, logit_bias=None, negative_only=False):
-        logits = self.get_logits(sequence_features, modality_features, logit_bias)
+    def _loss(self, modality_features, sequence_features, logit_scale, logit_bias=None, negative_only=False):
+        logits = self.get_logits(modality_features, sequence_features, logit_scale, logit_bias)
         labels = self.get_ground_truth(
-            sequence_features.device,
-            sequence_features.dtype,
-            sequence_features.shape[0],
+            modality_features.device,
+            modality_features.dtype,
+            modality_features.shape[0],
             negative_only=negative_only,
         )
-        loss = -F.logsigmoid(labels * logits).sum() / sequence_features.shape[0]
+        loss = -F.logsigmoid(labels * logits).sum() / modality_features.shape[0]
         return loss
 
-    def forward(self, sequence_features, modality_features, logit_bias=None, output_dict=False):
-        loss = self._loss(sequence_features, modality_features, logit_bias)
+    def forward(self, modality_features, sequence_features, logit_scale, logit_bias, output_dict=False):
+        loss = self._loss(modality_features, sequence_features, logit_scale, logit_bias)
 
         if self.world_size > 1:
-            # exchange text features w/ neighbour world_size - 1 times
+            # exchange sequence features w/ neighbour world_size - 1 times
             right_rank = (self.rank + 1) % self.world_size
             left_rank = (self.rank - 1 + self.world_size) % self.world_size
             if self.bidir:
-                modality_features_to_right = modality_features_to_left = modality_features
+                sequence_features_to_right = sequence_features_to_left = sequence_features
                 num_bidir, remainder = divmod(self.world_size - 1, 2)
                 for i in range(num_bidir):
-                    modality_features_recv = neighbour_exchange_bidir_with_grad(
+                    sequence_features_recv = neighbour_exchange_bidir_with_grad(
                         left_rank,
                         right_rank,
-                        modality_features_to_left,
-                        modality_features_to_right,
+                        sequence_features_to_left,
+                        sequence_features_to_right,
                     )
 
-                    for f in modality_features_recv:
+                    for f in sequence_features_recv:
                         loss += self._loss(
-                            sequence_features,
+                            modality_features,
                             f,
+                            logit_scale,
                             logit_bias,
                             negative_only=True,
                         )
-                    modality_features_to_left, modality_features_to_right = modality_features_recv
+                    sequence_features_to_left, sequence_features_to_right = sequence_features_recv
 
                 if remainder:
-                    modality_features_recv = neighbour_exchange_with_grad(
-                        left_rank, right_rank, modality_features_to_right)
+                    sequence_features_recv = neighbour_exchange_with_grad(
+                        left_rank, right_rank, sequence_features_to_right)
 
                     loss += self._loss(
-                        sequence_features,
-                        modality_features_recv,
+                        modality_features,
+                        sequence_features_recv,
+                        logit_scale,
                         logit_bias,
                         negative_only=True,
                     )
             else:
-                modality_features_to_right = modality_features
+                sequence_features_to_right = sequence_features
                 for i in range(self.world_size - 1):
-                    modality_features_from_left = neighbour_exchange_with_grad(
-                        left_rank, right_rank, modality_features_to_right)
+                    sequence_features_from_left = neighbour_exchange_with_grad(
+                        left_rank, right_rank, sequence_features_to_right)
 
                     loss += self._loss(
-                        sequence_features,
-                        modality_features_from_left,
+                        modality_features,
+                        sequence_features_from_left,
+                        logit_scale,
                         logit_bias,
                         negative_only=True,
                     )
-                    modality_features_to_right = modality_features_from_left
+                    sequence_features_to_right = sequence_features_from_left
 
         return {"contrastive_loss": loss} if output_dict else loss
-        
-

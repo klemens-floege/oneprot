@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import List, Any
+import shutil
 
 import torch
 import pytorch_lightning as pl
@@ -8,26 +9,22 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 from transformers import AutoTokenizer, AutoModel
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import pyrootutils
 import ast
-# Set up logging
 
-# Check if this is the first process (SLURM_PROCID == 0)
+# Set up logging
 if int(os.environ.get("SLURM_PROCID", 0)) == 0:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
 else:
-    # Disable logging for all other processes
     logging.basicConfig(level=logging.CRITICAL)
-
 
 logger = logging.getLogger(__name__)
 
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
-
 
 class SequenceDataset(Dataset):
     def __init__(self, csv_file: str, label_type: str = "classification"):
@@ -35,7 +32,7 @@ class SequenceDataset(Dataset):
         self.data = pd.read_csv(csv_file)
         self.label_type = label_type
 
-        if self.label_type == "classification":
+        if self.label_type == "classification" or self.label_type == "ppi":
             self.labels_fitness = torch.tensor(
                 self.data["label/fitness"].values, dtype=torch.long
             )
@@ -59,10 +56,15 @@ class SequenceDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        sequence = self.data.iloc[idx]["sequence"]
-        label_fitness = self.labels_fitness[idx]
-        return sequence, label_fitness
-
+        if self.label_type == "ppi":
+            sequence_1 = self.data.iloc[idx]["sequence_1"]
+            sequence_2 = self.data.iloc[idx]["sequence_2"]
+            label_fitness = self.labels_fitness[idx]
+            return sequence_1, sequence_2, label_fitness
+        else:
+            sequence = self.data.iloc[idx]["sequence"]
+            label_fitness = self.labels_fitness[idx]
+            return sequence, label_fitness
 
 class SequenceEmbedding(pl.LightningModule):
     def __init__(
@@ -98,8 +100,15 @@ class SequenceEmbedding(pl.LightningModule):
             return outputs
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
-        sequences, labels_fitness = batch
-        embeddings = self(sequences)
+        if len(batch) == 2:  # single sequence task
+            sequences, labels_fitness = batch
+            embeddings = self(sequences)
+        elif len(batch) == 3:  # PPI task
+            sequences_1, sequences_2, labels_fitness = batch
+            embeddings_1 = self(sequences_1)
+            embeddings_2 = self(sequences_2)
+            embeddings = torch.cat((embeddings_1, embeddings_2), dim=1)
+        
         labels_fitness = labels_fitness.to(self.device)
 
         self.save_embeddings_to_disk(embeddings, labels_fitness, batch_idx)
@@ -118,8 +127,17 @@ class SequenceEmbedding(pl.LightningModule):
 
 
 def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
+    logger.info("Loading custom model configuration")
+    
+    # Load the model-specific YAML file
+    model_config_path = cfg.model_config_path
+    if not os.path.exists(model_config_path):
+        raise FileNotFoundError(f"Model config file not found: {model_config_path}")
+    
+    model_cfg = OmegaConf.load(model_config_path)
+    
     logger.info("Instantiating custom model")
-    model = hydra.utils.instantiate(cfg.model)
+    model = hydra.utils.instantiate(model_cfg.model)
 
     if cfg.ckpt_path is not None:
         logger.info(f"Loading model checkpoint from: {cfg.ckpt_path}")
@@ -135,7 +153,6 @@ def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
     model.eval()
     logger.info("Custom model loaded successfully")
     return model
-
 
 def combine_embeddings_for_split(split_dir: str, output_file: str):
     logger.info(f"Combining embeddings for split in directory: {split_dir}")
@@ -165,14 +182,16 @@ def combine_embeddings_for_split(split_dir: str, output_file: str):
     logger.info(f"Final embeddings shape: {final_embeddings.shape}")
     logger.info(f"Final labels shape: {final_labels.shape}")
 
-    # Remove individual embedding files and split directory
-    for file in embedding_files:
-        os.remove(os.path.join(split_dir, file))
-    os.rmdir(split_dir)
-    logger.info("Individual embedding files and split directory removed")
+    # Remove individual embedding files
+    #for file in embedding_files:
+    #    os.remove(os.path.join(split_dir, file))
+    #logger.info("Individual embedding files removed")
 
+def collate_fn(batch):
+    sequences_1, sequences_2, labels = zip(*batch)
+    return list(sequences_1), list(sequences_2), torch.stack(labels)
 
-def process_data(
+def generate_single_embeddings(
     cfg: DictConfig, task_name: str, task_config: DictConfig, csv_file: str
 ):
     csv_filename = os.path.basename(csv_file).lower()
@@ -186,7 +205,7 @@ def process_data(
         raise ValueError(f"Unable to determine split from filename: {csv_file}")
 
     logger.info(
-        f"Processing data for task: {task_name}, file: {csv_file}, detected split: {split}"
+        f"Generating single embeddings for task: {task_name}, file: {csv_file}, detected split: {split}"
     )
 
     dataset = SequenceDataset(csv_file, task_config.label_type)
@@ -196,6 +215,7 @@ def process_data(
         num_workers=cfg.num_workers,
         shuffle=False,
         pin_memory=True,
+        collate_fn=collate_fn if task_config.label_type == "ppi" else None,
     )
 
     if cfg.model_name == "esm2":
@@ -208,7 +228,7 @@ def process_data(
         is_esm2 = False
 
     # Create a unique output directory for each task and split
-    task_output_dir = os.path.join(cfg.output_dir, task_name, split)
+    task_output_dir = os.path.join(cfg.output_dir, task_name, split, "single_embs")
     os.makedirs(task_output_dir, exist_ok=True)
 
     sequence_embedding = SequenceEmbedding(model, tokenizer, is_esm2, task_output_dir)
@@ -223,13 +243,39 @@ def process_data(
     trainer.predict(sequence_embedding, dataloader)
 
     logger.info(
-        f"Embeddings for task {task_name} and split {split} saved to {task_output_dir}"
+        f"Single embeddings for task {task_name} and split {split} saved to {task_output_dir}"
     )
-    output_file = os.path.join(
-        task_output_dir, f"{task_name}_{split}_embeddings_labels.pt"
-    )
-    combine_embeddings_for_split(task_output_dir, output_file)
 
+def collect_embeddings(
+    cfg: DictConfig, task_name: str, task_config: DictConfig, csv_file: str
+):
+    csv_filename = os.path.basename(csv_file).lower()
+    if "train" in csv_filename:
+        split = "train"
+    elif "valid" in csv_filename:
+        split = "valid"
+    elif "test" in csv_filename:
+        split = "test"
+    else:
+        raise ValueError(f"Unable to determine split from filename: {csv_file}")
+
+    logger.info(
+        f"Collecting embeddings for task: {task_name}, file: {csv_file}, detected split: {split}"
+    )
+
+    single_embs_dir = os.path.join(cfg.output_dir, task_name, split, "single_embs")
+    if not os.path.exists(single_embs_dir) or len(os.listdir(single_embs_dir)) == 0:
+        logger.info(f"No single embeddings found in {single_embs_dir}. Skipping collection.")
+        return
+
+    output_file = os.path.join(
+        cfg.output_dir, task_name, split, f"{task_name}_{split}_embeddings_labels.pt"
+    )
+    combine_embeddings_for_split(single_embs_dir, output_file)
+
+    # Remove single_embs directory
+    #shutil.rmtree(single_embs_dir)
+    #logger.info(f"Single embeddings directory {single_embs_dir} removed")
 
 @hydra.main(
     version_base="1.3", config_path="../configs", config_name="collect_embeddings.yaml"
@@ -245,10 +291,11 @@ def main(cfg: DictConfig) -> None:
 
     for task_name, task_config in cfg.tasks.items():
         logger.info(f"Processing task: {task_name}")
-
         for csv_file in task_config.csv_files:
-            process_data(cfg, task_name, task_config, csv_file)
-
+            if cfg.single_batch_mode:
+                generate_single_embeddings(cfg, task_name, task_config, csv_file)
+            else:
+                collect_embeddings(cfg, task_name, task_config, csv_file)
 
 if __name__ == "__main__":
     main()

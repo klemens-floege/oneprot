@@ -37,30 +37,71 @@ class LearnableLogitScaling(nn.Module):
              f" max_logit_scale={self.max_logit_scale}"
         return st
 
+
+class MeanPooling(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, features, input_mask=None):
+        if features.dim() == 2:
+            return features
+        if input_mask is not None:
+            masked_features = features * input_mask.unsqueeze(2)
+            sum_features = torch.sum(masked_features, dim=1)
+            mean_pooled_features = sum_features / input_mask.sum(dim=1, keepdim=True)
+        else:
+            mean_pooled_features = torch.mean(features, dim=1)
+        return mean_pooled_features
+
+
+class CLSTokenPooling(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, features, input_mask=None):
+        return features[:, 0]
+
+
 class BaseEncoder(nn.Module):
     def __init__(
         self,
+        d_model: int,
         output_dim: int,
-        proj: str = None,
+        proj_type: str = None,
         use_logit_scale: bool = False,
+        pooling_type: str = 'mean',
     ):
         super().__init__()
+        self.d_model = d_model
         self.output_dim = output_dim
-        self.proj = self._create_projection(proj)
+        self.pooling_type = pooling_type
+        self.proj = self._create_projection(proj_type)
         self.norm = self._create_normalization(use_logit_scale)
+        self.pooling = self._create_pooling(pooling_type)
 
-    def _create_projection(self, proj):
-        if proj == 'linear':
-            return nn.Linear(self.output_dim, self.output_dim, bias=False)
-        elif proj == 'mlp':
-            hidden_size = (self.output_dim + self.output_dim) // 2
+    def _create_projection(self, proj_type):
+        if (self.d_model == self.output_dim) and (proj_type is None):
             return nn.Sequential(
-                nn.Linear(self.output_dim, hidden_size, bias=False),
+                nn.Identity(),
+            )
+        elif proj_type == 'linear':
+            return nn.Sequential(
+                nn.LayerNorm(self.output_dim),
+                nn.Linear(self.d_model, self.output_dim, bias=False)              
+            )
+        elif proj_type == 'mlp':
+            hidden_size = (self.d_model + self.output_dim) // 2
+            return nn.Sequential(
+                nn.LayerNorm(hidden_size),
+                nn.Linear(self.d_model, hidden_size, bias=False),
                 nn.GELU(),
-                nn.Linear(hidden_size, self.output_dim, bias=False),
+                nn.LayerNorm(self.output_dim),
+                nn.Linear(hidden_size, self.output_dim, bias=False)     
             )
         else:
-            return nn.Identity()
+            return nn.Sequential(
+                nn.Identity(),
+            )
 
     def _create_normalization(self, use_logit_scale):
         layers = [Normalize(dim=-1)]
@@ -70,5 +111,16 @@ class BaseEncoder(nn.Module):
             layers.append(LearnableLogitScaling(learnable=False))
         return nn.Sequential(*layers)
 
-    def forward(self, x):
-        raise NotImplementedError("Subclasses must implement forward method")
+    def _create_pooling(self, pooling_type):
+        if pooling_type == 'mean':
+            return MeanPooling()
+        elif pooling_type == 'cls':
+            return CLSTokenPooling()
+        else:
+            return nn.Identity()
+
+    def forward(self, x, input_mask=None):
+        x = self.pooling(x, input_mask)
+        x = self.proj(x)
+        x = self.norm(x)
+        return x
