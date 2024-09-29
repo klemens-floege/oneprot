@@ -1,0 +1,113 @@
+# @package _global_
+
+defaults:
+  - override /data: oneprot
+  - override /model: oneprot
+  - override /trainer: ddp
+  - override /logger: wandb
+
+
+tags: all-modalities
+
+data:
+  modalities:
+    pocket:
+      dataset:
+        pocket: true
+      batch_size:
+        train: 16
+        val: 25
+    struct_graph:
+      batch_size:
+        train: 16
+        val: 25
+    struct_token:
+      batch_size:
+        train: 16
+        val: 25
+    text:
+      dataset:
+        text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+      batch_size:
+        train: 16
+        val: 25
+    seqsim:  
+      batch_size:
+          train: 16
+          val: 25
+    # msa:
+    #   dataset:
+    #     _target_: src.data.datasets.msa_dataset.MSADataset
+    #     data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
+    #     model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
+    #     seq_tokenizer: facebook/esm2_t33_650M_UR50D
+    #     max_length: 128
+    #     msa_depth: 50
+    #   batch_size:
+    #     train: 16
+    #     val: 8
+    #     test: 128
+  
+
+model:
+  _target_: src.models.oneprot_module.OneProtLitModule
+
+  components:
+    sequence:
+      model_name_or_path: facebook/esm2_t33_650M_UR50D
+      pooling_type: mean
+      output_dim: 128
+      proj_type: mlp
+      frozen: true
+      use_logit_scale: false
+      learnable_logit_scale: false
+    struct_token:
+      model_name_or_path: facebook/esm2_t12_35M_UR50D
+      pooling_type: mean
+      proj_type: linear
+      use_logit_scale: true
+      learnable_logit_scale: false
+    struct_graph:
+      proj_type: linear
+      use_logit_scale: true
+      learnable_logit_scale: false
+    pocket:
+      proj_type: linear
+      use_logit_scale: true
+      learnable_logit_scale: false
+    text:
+      pooling_type: cls
+      proj_type: mlp
+      use_lora: false
+      lora_r: 8
+      lora_alpha: 8
+      lora_dropout: 0.1
+      lora_target_modules:
+      - query
+      - key
+      - value
+      frozen: true
+      use_logit_scale: true
+      
+      learnable_logit_scale: false
+    # msa:
+    #   _target_: src.models.components.msa_encoder.MsaEncoder
+    #   model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
+    #   pooling_type: identity
+    #   proj_type: mlp
+    #   output_dim: ${..sequence.output_dim}
+    #   use_logit_scale: true
+    #   learnable_logit_scale: false
+    #   use_all_msa: true
+      
+  loss_fn: CLIP
+  use_l1_regularization: true
+  use_seqsim: true
+trainer:
+  num_nodes: 4
+  num_sanity_val_steps: -1
+  val_check_interval: 10
+
+task_name: train
+ckpt_path: null
+
