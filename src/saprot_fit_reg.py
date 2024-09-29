@@ -19,7 +19,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 
-from src.utils.downstream_utils import save_results_to_csv, load_data
+from src.utils.downstream import save_results_to_csv, load_data
 
 
 def evaluate(cfg: DictConfig, all_inputs: Dict[str, np.ndarray]) -> Dict:

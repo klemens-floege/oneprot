@@ -39,9 +39,9 @@ class StructTokenDataset(Dataset):
        
     def __len__(self) -> int:
         
-
-        return len(self.ids)
-
+        if self.split == "train":
+            return len(self.ids)
+        return 1000
     def __getitem__(self, idx: int) -> str:
         return self.ids[idx]
 

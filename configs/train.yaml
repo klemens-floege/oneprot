@@ -12,7 +12,7 @@ defaults:
   - _self_
 
 task_name: "train"
-tags: ${data.data_modalities}
+
 
 
 # set False to skip model training

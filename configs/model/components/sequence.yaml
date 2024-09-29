@@ -1,13 +1,14 @@
 sequence:
   _target_: src.models.components.sequence_encoder.SequenceEncoder
-  model_name_or_path: facebook/esm2_t33_650M_UR50D
-  pooler_type: mean_pooler
+  model_name_or_path: facebook/esm2_t33_650M_UR50D # esm2_t12_35M_UR50D esm2_t30_150M_UR50D esm2_t33_650M_UR50D
+  pooling_type: mean
   output_dim: 1024
-  proj: linear
-  use_logit_scale: False
-  use_lora: False
-  lora_r: 8
+  proj_type: mlp
+  use_lora: false
+  lora_r: 16
   lora_alpha: 16
   lora_dropout: 0.1
   lora_target_modules: ['query', 'key', 'value']
-  frozen: True
+  frozen: true
+  use_logit_scale: False
+  learnable_logit_scale: false

@@ -16,7 +16,7 @@ model:
   learning_rate: 0.001
   batch_size: 32
   max_epochs: 10
-  early_stopping_patience: 50
+  early_stopping_patience: 10
 
 threshold: .inf
 
@@ -26,12 +26,12 @@ downstream_model:
   name: MLP
 # Sweep parameters
 sweep:
-  learning_rate: [0.001]
-  hidden_dim: [128]
-  batch_size: [64]
-  max_epochs: [5]
-  task_name: ["MetalIonBinding","EC","GO-BP","GO-MF","GO-CC","ThermoStability","DeepLoc2","DeepLoc10","TopEnzyme"]
-  model_type: [esm2]
+  learning_rate: [0.001, 0.01]
+  batch_size: [128]
+  max_epochs: [250, 500, 1000]
+  task_name: ["TopEnzyme"] #,"HumanPPI","EC","GO-BP","GO-MF","GO-CC","ThermoStability","DeepLoc2","DeepLoc10","TopEnzyme"]
+  #, "MetalIonBinding","EC","GO-BP","GO-MF","GO-CC","ThermoStability","DeepLoc2","DeepLoc10","TopEnzyme"]
+  model_type: [esm2, oneprot]
 
 hydra:
   run:

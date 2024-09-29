@@ -1,6 +1,9 @@
 msa:
   _target_: src.models.components.msa_encoder.MsaEncoder
-  pooler_type: mean_pooler
-  proj: mlp
+  model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
+  pooling_type: identity
+  proj_type: mlp
   output_dim: ${..sequence.output_dim}
-  use_logit_scale: False
+  use_logit_scale: true
+  learnable_logit_scale: false
+  use_all_msa: true

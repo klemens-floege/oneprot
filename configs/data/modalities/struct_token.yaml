@@ -6,5 +6,5 @@ struct_token:
     seq_tokenizer: facebook/esm2_t33_650M_UR50D
   batch_size:
     train: 16
-    val: 32
+    val: 16
     test: 64

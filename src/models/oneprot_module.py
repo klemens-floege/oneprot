@@ -12,6 +12,7 @@ class OneProtLitModule(LightningModule):
         components: Dict[str, Any],
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler = None,
+        use_seqsim: bool = False,
         loss_fn: str = 'CLIP',
         use_l1_regularization: bool = False,
         local_loss: bool = True,
@@ -29,18 +30,16 @@ class OneProtLitModule(LightningModule):
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
         self.val_loss_best = MinMetric()
+        self.use_seqsim = use_seqsim
         
 
         self.metrics = {
             f"{split}_{modality}": RetrievalMetric()
             for split in ["val", "test"]
-            for modality in list(self.network.keys()) + ["seqsim", "seqsim_msa"]
+            for modality in list(self.network.keys()) + ["seqsim"]
             if modality != 'sequence'
         }
 
-        # Storage for embeddings and sequences during testing
-        self.test_embeddings = defaultdict(list)
-        self.test_sequences = []
     def l1_regularization(self, features):
             return torch.abs(features).mean()
 
@@ -65,7 +64,7 @@ class OneProtLitModule(LightningModule):
 
     def forward(self, x, modality="sequence"):
 
-        if modality in ["sequence", "seqsim", "seqsim_msa"]:
+        if modality in ["sequence", "seqsim"]:
             modality = "sequence"
         return self.network[modality](x)
 
@@ -81,34 +80,42 @@ class OneProtLitModule(LightningModule):
         opt = self.optimizers()    
         
         for modality, inputs in list(batch.items()):     
+            if not self.use_seqsim and modality =="seqsim":
+                continue
+            
             sequence_inputs, modality_inputs, modality, _ = inputs
             sequence_features = self.forward(sequence_inputs, "sequence")
             modality_features = self.forward(modality_inputs, modality)
             opt.zero_grad()
             
             if self.use_l1_regularization:
-                loss = self.loss_fn(sequence_features, modality_features, self.network[modality].norm[1].log_logit_scale.exp())
+                loss = self.loss_fn(sequence_features, modality_features)
                 loss +=  0.001 * (torch.abs(sequence_features).mean() + torch.abs(modality_features).mean())
             else:
-                loss = self.loss_fn(sequence_features, modality_features, self.network[modality].norm[1].log_logit_scale.exp())
+                loss = self.loss_fn(sequence_features, modality_features)
             self.train_loss(loss)
             self.manual_backward(loss)
             self.clip_gradients(opt, gradient_clip_val=1.0, gradient_clip_algorithm="norm")
             opt.step()
             self.log("train/loss", self.train_loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
-
+ 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
 
         sequence_inputs, modality_inputs, modality, _ = batch
-        
+ 
         sequence_features = self.forward(sequence_inputs, "sequence")
         modality_features = self.forward(modality_inputs, modality)
+        
         self.metrics["val_"+modality].update(sequence_features, modality_features)
-        loss = self.loss_fn(sequence_features, modality_features,  self.network[modality].norm[1].log_logit_scale.exp())
+
+        loss = self.loss_fn(sequence_features, modality_features)
+        
         self.val_loss(loss)
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        
 
     def on_validation_epoch_end(self):
+                
         loss = self.val_loss.compute()
         self.val_loss_best(loss)
         self.log("val/loss_best", self.val_loss_best.compute(), sync_dist=True, prog_bar=True)
@@ -118,8 +125,8 @@ class OneProtLitModule(LightningModule):
                 metric_results = self.metrics[modality].compute()
                 for key, value in metric_results.items():
                     self.log(f"val/{key}/{modality}", value, sync_dist=True, prog_bar=True)
-                self.metrics[modality].reset()
-
+                self.metrics[modality].reset()    
+    
     def test_step(self, batch, batch_idx):
         for modality, (seq_inputs, mod_inputs, _, _) in batch.items():
             seq_features = self(seq_inputs, "sequence")

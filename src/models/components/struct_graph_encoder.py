@@ -9,6 +9,7 @@ class StructEncoder(BaseEncoder):
         output_dim: int,
         proj_type: str = None,
         use_logit_scale: bool = False,
+        learnable_logit_scale: bool = False,
         pooling_type: str = None,
         level: str = "backbone",
         euler_noise: bool = True,
@@ -17,10 +18,11 @@ class StructEncoder(BaseEncoder):
     ):
         # Assume encoder.output_dim is the dimension of the encoder's output
         super().__init__(
-            d_model=encoder.output_dim,
+            d_model=output_dim,
             output_dim=output_dim,
             proj_type=proj_type,
             use_logit_scale=use_logit_scale,
+            learnable_logit_scale=learnable_logit_scale,
             pooling_type=pooling_type
         )
         self.encoder = encoder

@@ -56,7 +56,7 @@ class RetrievalMetric(Metric):
 
     def __init__(
         self,
-        k: list = [1, 10],
+        k: list = [1, 10, 100],
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -76,14 +76,12 @@ class RetrievalMetric(Metric):
     def compute(self) -> Tensor:
         """Compute CLIP retrieval scores."""
         #print(self.preds,"sequence outputs!!!!")
-        #print(self.preds.shape,"sequence outputs shape!!!!")
+        
 
         #print(self.target,"modality outputs!!!!")
         #print(self.target.shape,"modality outputs shape!!!!")  
         sequence_outputs = dim_zero_cat(self.preds)
         modality_outputs = dim_zero_cat(self.target)
-        
-      
 
         metrics = {}
         logits_per_sequence = (sequence_outputs @ modality_outputs.t()).detach().cpu()

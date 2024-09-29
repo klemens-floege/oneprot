@@ -1,7 +1,8 @@
 struct_token:
   _target_: src.models.components.struct_token_encoder.StructTokenEncoder
-  model_name_or_path: facebook/esm2_t33_650M_UR50D #esm2_t12_35M_UR50D esm2_t30_150M_UR50D esm2_t33_650M_UR50D
+  model_name_or_path: facebook/esm2_t12_35M_UR50D #esm2_t12_35M_UR50D esm2_t30_150M_UR50D esm2_t33_650M_UR50D
   output_dim: ${..sequence.output_dim}
-  pooler_type: mean_pooler
-  proj: linear
-  use_logit_scale: False
+  pooling_type: mean
+  proj_type: linear
+  use_logit_scale: true
+  learnable_logit_scale: false

@@ -16,16 +16,17 @@ hydra:
   sweeper:
     params:
       +threshold: .inf
-      ++downstream_model.max_depth: 5, 9
+      ++downstream_model.max_depth: 3, 5, 9
       ++downstream_model.learning_rate: 0.1, 0.3
       ++downstream_model.min_child_weight: 1, 3
-      ++downstream_model.n_estimators: 500, 1000
+      ++downstream_model.n_estimators: 250, 500, 1000
       ++downstream_model.gamma: 0, 0.1
       ++downstream_model.subsample: 0.8
       ++downstream_model.colsample_bytree: 0.8, 1.0
       ++downstream_model.reg_alpha: 0, 0.1
       ++downstream_model.reg_lambda: 10
-      +model_type: oneprot
+      ++downstream_model.tree_method: gpu_hist
+      +model_type: oneprot, esm2
       +task_name: ThermoStability
 
 

@@ -13,6 +13,7 @@ class TextEncoder(BaseEncoder):
         pooling_type: str = "mean",
         proj_type: str = "linear",
         use_logit_scale: bool = False,
+        learnable_logit_scale: bool = False,
         frozen: bool = False,
         use_lora: bool = False,
         lora_r: int = 8,
@@ -26,6 +27,7 @@ class TextEncoder(BaseEncoder):
             output_dim=output_dim,
             proj_type=proj_type,
             use_logit_scale=use_logit_scale,
+            learnable_logit_scale=learnable_logit_scale,
             pooling_type=pooling_type
         )
         self.transformer = AutoModel.from_pretrained(model_name_or_path)

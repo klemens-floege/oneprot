@@ -6,20 +6,27 @@ import torch.nn as nn
 class MsaEncoder(BaseEncoder):
     def __init__(
         self,
+        model_name_or_path: str,
         output_dim: int,
         pooling_type: str = "mean",
         proj_type: str = None,
         use_logit_scale: bool = False,
+        learnable_logit_scale: bool = False,
         use_all_msa: bool = False,
     ):
-        self.transformer, _ = esm.pretrained.esm_msa1b_t12_100M_UR50S()
+        #self.transformer, _ = esm.pretrained.esm_msa1b_t12_100M_UR50S()
+        transformer, alphabet = esm.pretrained.load_model_and_alphabet_local(model_name_or_path)
+        
         super().__init__(
-            d_model=self.transformer.embed_dim,
+            d_model=768, # Msa token emb shape
             output_dim=output_dim,
             proj_type=proj_type,
             use_logit_scale=use_logit_scale,
+            learnable_logit_scale=learnable_logit_scale,
             pooling_type=pooling_type
         )
+        self.alphabet = alphabet
+        self.transformer = transformer
         self.transformer.eval()
         for param in self.transformer.parameters():
             param.requires_grad = False
@@ -27,7 +34,7 @@ class MsaEncoder(BaseEncoder):
 
     def forward(self, tokens):
         out = self.transformer(tokens, repr_layers=[12])
-        attn_mask = (tokens != self.transformer.alphabet.padding_idx).long()
+        attn_mask = (tokens != self.alphabet.padding_idx).long()
         
         if self.use_all_msa:
             # Use mean averaging for all tokens

@@ -3,7 +3,11 @@ defaults:
 
 
 accelerator: gpu
-devices: 4
+
 num_nodes: 1
 sync_batchnorm: True
-#timeout: 1000
+min_epochs: 1
+max_epochs: 100
+devices: 4
+strategy: 'ddp_find_unused_parameters_true'
+#strategy: ddp

@@ -6,5 +6,5 @@ text:
     text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
   batch_size:
     train: 16
-    val: 32
+    val: 16
     test: 64

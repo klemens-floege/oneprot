@@ -5,9 +5,9 @@ defaults:
   - components/struct_graph
   - components/pocket
   - components/text
-  - components/msa
+  #- components/msa
 
 loss_fn: CLIP
-local_loss: True
-gather_with_grad: True
-
+local_loss: true
+gather_with_grad: true
+use_l1_regularization: true

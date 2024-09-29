@@ -8,5 +8,6 @@ pocket:
     data_augment_eachlayer: True 
     dropout: 0.25
   output_dim: ${..sequence.output_dim}
-  proj: linear
-  use_logit_scale: False
+  proj_type: linear
+  use_logit_scale: true
+  learnable_logit_scale: false

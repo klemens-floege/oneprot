@@ -24,7 +24,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 
-from utils.downstream_utils import save_results_to_csv, load_data, count_f1_max
+from utils.downstream import save_results_to_csv, load_data, count_f1_max
 
 
 class EmbeddingDataset(Dataset):
@@ -65,46 +65,22 @@ class EmbeddingDataModule(LightningDataModule):
 
 
 class MLPHead(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dims=[512, 256, 128], dropout_rate=0.3):
+    def __init__(self, input_dim, output_dim, hidden_dim=256, dropout_rate=0.3):
         super().__init__()
-        self.layers = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-        self.dropouts = nn.ModuleList()
-
-        # Input layer
-        self.layers.append(nn.Linear(input_dim, hidden_dims[0]))
-        self.batch_norms.append(nn.BatchNorm1d(hidden_dims[0]))
-        self.dropouts.append(nn.Dropout(dropout_rate))
-
-        # Hidden layers
-        for i in range(len(hidden_dims) - 1):
-            self.layers.append(nn.Linear(hidden_dims[i], hidden_dims[i+1]))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_dims[i+1]))
-            self.dropouts.append(nn.Dropout(dropout_rate))
-
-        # Output layer
-        self.layers.append(nn.Linear(hidden_dims[-1], output_dim))
-
-        # Residual connections
-        self.residual_layers = nn.ModuleList()
-        for i in range(len(hidden_dims)):
-            if i == 0:
-                self.residual_layers.append(nn.Linear(input_dim, hidden_dims[i]))
-            else:
-                self.residual_layers.append(nn.Linear(hidden_dims[i-1], hidden_dims[i]))
+        self.layers = nn.ModuleList([
+            nn.Dropout(dropout_rate),
+            nn.Linear(input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_dim, output_dim)
+        ])
 
     def forward(self, x):
-        residual = x
-        for i, (layer, batch_norm, dropout, residual_layer) in enumerate(zip(self.layers[:-1], self.batch_norms, self.dropouts, self.residual_layers)):
+        for i, layer in enumerate(self.layers):
             x = layer(x)
-            x = batch_norm(x)
-            x = F.leaky_relu(x, negative_slope=0.01)
-            x = dropout(x)
-            residual = residual_layer(residual)
-            x = x + residual
-            residual = x
-        
-        return self.layers[-1](x)
+            if i < len(self.layers) - 1:
+                x = F.leaky_relu(x, negative_slope=0.01)
+        return x
 
 
 class EvaluationModule(pl.LightningModule):
@@ -223,7 +199,7 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
     # Determine the accelerator and devices based on GPU availability
     if torch.cuda.is_available():
         accelerator = "gpu"
-        fit_devices = "auto"
+        fit_devices = 1
         predict_devices = 1
     else:
         accelerator = "cpu"

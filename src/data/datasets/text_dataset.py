@@ -27,9 +27,9 @@ class TextDataset(Dataset):
        
     def __len__(self) -> int:
         
-
-        return self.df.shape[0]
-
+        if self.split == "train":
+            return self.df.shape[0]
+        return 1000
         
     def __getitem__(self, idx: int) -> str:
         return self.df[0].iloc[idx]

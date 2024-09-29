@@ -33,8 +33,9 @@ class StructDataset(Dataset):
         self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
 
     def __len__(self) -> int:
-
-        return len(self.id_list)
+        if self.split == "train":
+            return len(self.id_list)
+        return 1000 
     def __getitem__(self, idx: int) -> str:       
         return self.id_list[idx]
 
@@ -59,11 +60,20 @@ class StructDataset(Dataset):
             mask_indice = torch.tensor(np.random.choice(batch_struct.num_nodes, int(batch_struct.num_nodes * mask_aatype), replace=False))
             batch_struct.x[:, 0][mask_indice] = 20
         if self.use_struct_coord_noise and self.split=='train':
-            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.pos.shape), min=-0.3, max=0.3)
-            batch_struct.pos += gaussian_noise
+  
+            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.coords_ca.shape), min=-0.3, max=0.3)
+            batch_struct.coords_ca += gaussian_noise
+            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.coords_n.shape), min=-0.3, max=0.3)
+            batch_struct.coords_n += gaussian_noise
+            gaussian_noise = torch.clip(torch.normal(mean=0.0, std=0.1, size=batch_struct.coords_c.shape), min=-0.3, max=0.3)
+            batch_struct.coords_c += gaussian_noise
         if self.use_struct_deform and self.split=='train':
             deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1)
-            batch_struct.pos *= deform
+            batch_struct.coords_ca *= deform
+            deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1)
+            batch_struct.coords_n *= deform
+            deform = torch.clip(torch.normal(mean=1.0, std=0.1, size=(1, 3)), min=0.9, max=1.1)
+            batch_struct.coords_c *= deform
 
         sequence_input = self.seq_tokenizer(sequences, max_length=self.max_length, padding=True, truncation=True, return_tensors="pt").input_ids   
         modality = "pocket" if self.pocket else "struct_graph"

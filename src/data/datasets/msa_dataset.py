@@ -7,7 +7,7 @@ from src.data.utils.msa_utils import read_msa, filter_and_create_msa_file_list, 
 
 class MSADataset(Dataset):
     def __init__(self, data_dir: str, split: str, max_length: int = 1024, 
-                 msa_depth: int = 100, seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D"):
+                 msa_depth: int = 100, seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D", model_name_or_path: str = ""):
         """
         Initialize the MSA Dataset.
         
@@ -21,7 +21,8 @@ class MSADataset(Dataset):
         """
         filename = f"{data_dir}/{split}_msa.csv"
         self.msa_files = filter_and_create_msa_file_list(filename)
-        _, msa_transformer_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
+        _, msa_transformer_alphabet = esm.pretrained.load_model_and_alphabet_local(model_name_or_path)
+
         self.msa_padding_idx = 1
         self.msa_transformer_batch_converter = msa_transformer_alphabet.get_batch_converter(truncation_seq_length=1022)
         self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
@@ -33,8 +34,7 @@ class MSADataset(Dataset):
         if self.split == "train":
             return len(self.msa_files)  
         else:
-            return 250
-        
+            return 1000
        
     def __getitem__(self, idx: int) -> str:
     

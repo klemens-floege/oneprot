@@ -6,7 +6,7 @@ defaults:
 
 model_checkpoint:
   dirpath: ${paths.output_dir}/checkpoints
-  filename: "epoch_{epoch:03d}"
+  filename: "best"
   monitor: "val/loss_best"
   mode: "min"
   save_last: True
@@ -14,7 +14,7 @@ model_checkpoint:
 
 
 model_summary:
-  max_depth: 2
+  max_depth: 3
 
 lr_monitor:
   _target_: pytorch_lightning.callbacks.LearningRateMonitor

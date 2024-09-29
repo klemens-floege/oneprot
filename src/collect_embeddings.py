@@ -149,7 +149,7 @@ def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
                 torch.load(cfg.ckpt_path, map_location="cpu")["state_dict"]
             )
 
-    model = model.oneprot["sequence"]
+    model = model.network["sequence"]
     model.eval()
     logger.info("Custom model loaded successfully")
     return model

@@ -100,7 +100,7 @@ class ClipLoss(nn.Module):
         
         return logits_per_modality, logits_per_sequence
 
-    def forward(self, modality_features, sequence_features, logit_scale, output_dict=False):
+    def forward(self, modality_features, sequence_features, logit_scale=1.0, output_dict=False):
         device = modality_features.device
         logits_per_modality, logits_per_sequence = self.get_logits(modality_features, sequence_features, logit_scale)
 
@@ -254,7 +254,7 @@ class SigLipLoss(nn.Module):
         loss = -F.logsigmoid(labels * logits).sum() / modality_features.shape[0]
         return loss
 
-    def forward(self, modality_features, sequence_features, logit_scale, logit_bias, output_dict=False):
+    def forward(self, modality_features, sequence_features, logit_scale=1.0, logit_bias=None, output_dict=False):
         loss = self._loss(modality_features, sequence_features, logit_scale, logit_bias)
 
         if self.world_size > 1:

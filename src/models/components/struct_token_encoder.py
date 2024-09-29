@@ -11,6 +11,7 @@ class StructTokenEncoder(BaseEncoder):
         pooling_type: str = "mean",
         proj_type: str = "linear",
         use_logit_scale: bool = False,
+        learnable_logit_scale: bool = False,
     ):
         self.config = AutoConfig.from_pretrained(model_name_or_path)
         super().__init__(
@@ -18,6 +19,7 @@ class StructTokenEncoder(BaseEncoder):
             output_dim=output_dim,
             proj_type=proj_type,
             use_logit_scale=use_logit_scale,
+            learnable_logit_scale=learnable_logit_scale,
             pooling_type=pooling_type
         )
         

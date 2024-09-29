@@ -9,8 +9,8 @@ tokenizer_name: facebook/esm2_t33_650M_UR50D
 
 
 # Checkpoint path (optional)
-ckpt_path: /p/scratch/hai_oneprot/checkpoints_100924/manual_ckpts/2024-09-12__10:27:58/epoch_172_pocket_struct_text_msa_cls_1d.ckpt
-#/p/project/hai_oneprot/bazarova1/oneprot-main/slurms/manual_ckpts/2024-06-30__16:47:04/last.ckpt
+ckpt_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2024-09-27_13-19-07/checkpoints/best.ckpt
+model_config_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2024-09-27_13-19-07/config.yaml
 # Output directory
 output_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/${model_name}
 
@@ -21,7 +21,7 @@ num_workers: 16
 # GPU configuration
 num_gpus: 4
 num_nodes: 1
-single_batch_mode: True
+single_batch_mode: false
 
 
 tasks:
@@ -56,12 +56,6 @@ tasks:
       - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_train.csv
       - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_valid.csv
       - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_test.csv
-  TopEnzyme:
-    label_type: classification
-    csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_train_seq.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_valid_seq.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_test_seq.csv
 
   MetalIonBinding:
     label_type: classification
@@ -91,3 +85,9 @@ tasks:
       - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_train.csv
       - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_valid.csv
       - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_test.csv
+  TopEnzyme:
+    label_type: classification
+    csv_files:
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_train_seq.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_valid_seq.csv
+      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_test_seq.csv

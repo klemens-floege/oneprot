@@ -10,7 +10,6 @@ from src.data.datasets.struct_graph_dataset import StructDataset
 from src.data.datasets.text_dataset import TextDataset
 from src.data.datasets.struct_token_dataset import StructTokenDataset
 from src.data.datasets.seqsim_dataset import SequenceSimDataset
-from src.data.datasets.seqsim_msa_dataset import SequenceMsaSimDataset
 
 # Dictionary mapping modality names to their respective dataset classes
 DATASET_CLASSES = {
@@ -20,11 +19,11 @@ DATASET_CLASSES = {
     "text": TextDataset,
     "struct_token": StructTokenDataset,
     "seqsim": SequenceSimDataset,
-    "seqsim_msa": SequenceMsaSimDataset,
+
 }
 
 class OneProtDataModule(LightningDataModule):
-    def __init__(self, modalities: DictConfig, data_modalities, num_workers, pin_memory, default_batch_size):
+    def __init__(self, modalities: DictConfig, num_workers, pin_memory, default_batch_size):
         super().__init__()
         self.modalities = modalities
         self.datasets: Dict[str, Any] = {}
@@ -61,7 +60,8 @@ class OneProtDataModule(LightningDataModule):
             if f"{modality}_{split}" not in self.datasets:
                 self.logger.warning(f"Dataset for {modality} {split} not found, skipping.")
                 continue
-            batch_size = modality_cfg.batch_size.get(split, self.default_batch_size)//2
+            batch_size = modality_cfg.batch_size.get(split, self.default_batch_size)
+
             iterables[modality] = DataLoader(
                 dataset=self.datasets[f"{modality}_{split}"],
                 batch_size=batch_size,
@@ -69,7 +69,7 @@ class OneProtDataModule(LightningDataModule):
                 pin_memory=self.pin_memory,
                 collate_fn=self.datasets[f"{modality}_{split}"].collate_fn,
                 shuffle=shuffle,
-                drop_last=True,
+                drop_last=False,
             )
 
         return CombinedLoader(iterables, "max_size_cycle" if shuffle else "sequential")
