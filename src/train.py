@@ -68,9 +68,13 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     if cfg.get("compile"):
         log.info("Compiling model!")
         model = torch.compile(model)
-
-    log.info("Starting training from checkpoint!")
-    trainer.fit(model=model, datamodule=datamodule)
+    
+    if cfg.get("ckpt_path"):
+        log.info("Starting training from checkpoint!")
+        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
+    else:
+        log.info("No checkpoint provided, starting training from scratch.")
+        trainer.fit(model=model, datamodule=datamodule)
 
     train_metrics = trainer.callback_metrics
 

@@ -45,7 +45,7 @@ class SequenceDataset(Dataset):
                 ast.literal_eval
             )
             self.labels_fitness = torch.tensor(
-                self.data["label/fitness"], dtype=torch.int32
+                self.data["label/fitness"].tolist(), dtype=torch.int32
             )
         else:
             raise ValueError(f"Unsupported label_type: {self.label_type}")
@@ -125,12 +125,11 @@ class SequenceEmbedding(pl.LightningModule):
             output_file,
         )
 
-
 def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
     logger.info("Loading custom model configuration")
     
     # Load the model-specific YAML file
-    model_config_path = cfg.model_config_path
+    model_config_path = cfg.model.config_path
     if not os.path.exists(model_config_path):
         raise FileNotFoundError(f"Model config file not found: {model_config_path}")
     
@@ -139,14 +138,14 @@ def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
     logger.info("Instantiating custom model")
     model = hydra.utils.instantiate(model_cfg.model)
 
-    if cfg.ckpt_path is not None:
-        logger.info(f"Loading model checkpoint from: {cfg.ckpt_path}")
+    if cfg.model.ckpt_path is not None:
+        logger.info(f"Loading model checkpoint from: {cfg.model.ckpt_path}")
         if torch.cuda.is_available():
-            model.load_state_dict(torch.load(cfg.ckpt_path)["state_dict"])
+            model.load_state_dict(torch.load(cfg.model.ckpt_path)["state_dict"])
             model.cuda()
         else:
             model.load_state_dict(
-                torch.load(cfg.ckpt_path, map_location="cpu")["state_dict"]
+                torch.load(cfg.model.ckpt_path, map_location="cpu")["state_dict"]
             )
 
     model = model.network["sequence"]
@@ -182,11 +181,6 @@ def combine_embeddings_for_split(split_dir: str, output_file: str):
     logger.info(f"Final embeddings shape: {final_embeddings.shape}")
     logger.info(f"Final labels shape: {final_labels.shape}")
 
-    # Remove individual embedding files
-    #for file in embedding_files:
-    #    os.remove(os.path.join(split_dir, file))
-    #logger.info("Individual embedding files removed")
-
 def collate_fn(batch):
     sequences_1, sequences_2, labels = zip(*batch)
     return list(sequences_1), list(sequences_2), torch.stack(labels)
@@ -218,7 +212,7 @@ def generate_single_embeddings(
         collate_fn=collate_fn if task_config.label_type == "ppi" else None,
     )
 
-    if cfg.model_name == "esm2":
+    if cfg.model.name == "esm2":
         model = AutoModel.from_pretrained(cfg.esm_model)
         tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
         is_esm2 = True
@@ -273,13 +267,7 @@ def collect_embeddings(
     )
     combine_embeddings_for_split(single_embs_dir, output_file)
 
-    # Remove single_embs directory
-    #shutil.rmtree(single_embs_dir)
-    #logger.info(f"Single embeddings directory {single_embs_dir} removed")
-
-@hydra.main(
-    version_base="1.3", config_path="../configs", config_name="collect_embeddings.yaml"
-)
+@hydra.main(version_base="1.3", config_path="../configs", config_name="collect_embeddings.yaml")
 def main(cfg: DictConfig) -> None:
     logger.info("Starting the embedding generation process")
 
@@ -289,13 +277,30 @@ def main(cfg: DictConfig) -> None:
         torch.backends.cudnn.deterministic = False
         logger.info("CUDA optimizations enabled")
 
-    for task_name, task_config in cfg.tasks.items():
-        logger.info(f"Processing task: {task_name}")
-        for csv_file in task_config.csv_files:
-            if cfg.single_batch_mode:
-                generate_single_embeddings(cfg, task_name, task_config, csv_file)
-            else:
-                collect_embeddings(cfg, task_name, task_config, csv_file)
+    # Store the original output directory template
+    output_dir_template = cfg.output_dir
+
+    for model_config in cfg.models:
+        logger.info(f"Processing model: {model_config.name}")
+        
+        # Create a copy of the config for this model
+        model_cfg = OmegaConf.create(cfg)
+        
+        # Update the model-specific settings
+        model_cfg.model = OmegaConf.create(model_config)
+        
+        # Update the output directory for the current model
+        model_cfg.output_dir = output_dir_template.format(model_name=model_config.name)
+        
+        logger.info(f"Output directory for {model_config.name}: {model_cfg.output_dir}")
+        
+        for task_name, task_config in model_cfg.tasks.items():
+            logger.info(f"Processing task: {task_name}")
+            for csv_file in task_config.csv_files:
+                if model_cfg.single_batch_mode:
+                    generate_single_embeddings(model_cfg, task_name, task_config, csv_file)
+                else:
+                    collect_embeddings(model_cfg, task_name, task_config, csv_file)
 
 if __name__ == "__main__":
     main()

@@ -71,15 +71,14 @@ class MLPHead(nn.Module):
             nn.Dropout(dropout_rate),
             nn.Linear(input_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, output_dim)
         ])
 
     def forward(self, x):
-        for i, layer in enumerate(self.layers):
+        for layer in self.layers:
             x = layer(x)
-            if i < len(self.layers) - 1:
-                x = F.leaky_relu(x, negative_slope=0.01)
         return x
 
 
@@ -91,9 +90,10 @@ class EvaluationModule(pl.LightningModule):
 
         if cfg.model_type == "esm2":
             input_dim = 1280
+        elif cfg.model_type in ["oneprot_1","oneprot_2","oneprot_3","oneprot_4","oneprot_5","oneprot_6","oneprot_7"]:
+            input_dim = 128
         else:
-            input_dim = 1024
-        
+            input_dim = 256
         if self.cfg.task_name == "HumanPPI":
             input_dim = input_dim * 2
 

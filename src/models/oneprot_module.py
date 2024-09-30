@@ -90,7 +90,7 @@ class OneProtLitModule(LightningModule):
             
             if self.use_l1_regularization:
                 loss = self.loss_fn(sequence_features, modality_features)
-                loss +=  0.001 * (torch.abs(sequence_features).mean() + torch.abs(modality_features).mean())
+                loss +=  0.01 * (torch.abs(sequence_features).mean() + torch.abs(modality_features).mean())
             else:
                 loss = self.loss_fn(sequence_features, modality_features)
             self.train_loss(loss)
