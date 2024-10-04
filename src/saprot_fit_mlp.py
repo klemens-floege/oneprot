@@ -23,9 +23,7 @@ sys.path.insert(0, current_dir)
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-
 from utils.downstream import save_results_to_csv, load_data, count_f1_max
-
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, targets):
@@ -37,7 +35,6 @@ class EmbeddingDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.embeddings[idx], self.targets[idx]
-
 
 class EmbeddingDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig):
@@ -63,24 +60,59 @@ class EmbeddingDataModule(LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.data["test"], batch_size=self.cfg.model.batch_size)
 
-
-class MLPHead(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=256, dropout_rate=0.3):
+class MLP(nn.Module):
+    def __init__(self, input_dim, output_dim, hidden_dims=[256], dropout_rate=0.0, 
+                 use_batch_norm=False, use_layer_norm=False, activation='relu', 
+                 use_residual=False):
         super().__init__()
-        self.layers = nn.ModuleList([
-            nn.Dropout(dropout_rate),
-            nn.Linear(input_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_dim, output_dim)
-        ])
+        self.use_residual = use_residual
+        self.input_dim = input_dim
+
+        layers = []
+        in_features = input_dim
+
+        for i, hidden_dim in enumerate(hidden_dims):
+            layers.append(nn.Linear(in_features, hidden_dim))
+            
+            if use_batch_norm:
+                layers.append(nn.BatchNorm1d(hidden_dim))
+            elif use_layer_norm:
+                layers.append(nn.LayerNorm(hidden_dim))
+            
+            if activation == 'relu':
+                layers.append(nn.ReLU())
+            elif activation == 'gelu':
+                layers.append(nn.GELU())
+            elif activation == 'leaky_relu':
+                layers.append(nn.LeakyReLU())
+            
+            if dropout_rate > 0:
+                layers.append(nn.Dropout(dropout_rate))
+            
+            in_features = hidden_dim
+
+        self.hidden_layers = nn.ModuleList(layers)
+        self.output_layer = nn.Linear(in_features, output_dim)
+
+        # Add a projection layer for residual connections if needed
+        if self.use_residual and input_dim != hidden_dims[-1]:
+            self.residual_projection = nn.Linear(input_dim, hidden_dims[-1])
+        else:
+            self.residual_projection = None
 
     def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        if self.use_residual:
+            residual = x
 
+        for layer in self.hidden_layers:
+            x = layer(x)
+
+        if self.use_residual:
+            if self.residual_projection:
+                residual = self.residual_projection(residual)
+            x = x + residual
+
+        return self.output_layer(x)
 
 class EvaluationModule(pl.LightningModule):
     def __init__(self, cfg: DictConfig):
@@ -90,38 +122,49 @@ class EvaluationModule(pl.LightningModule):
 
         if cfg.model_type == "esm2":
             input_dim = 1280
-        elif cfg.model_type in ["oneprot_1","oneprot_2","oneprot_3","oneprot_4","oneprot_5","oneprot_6","oneprot_7"]:
-            input_dim = 128
-        else:
+        elif cfg.model_type in ["oneprot_9"]:
             input_dim = 256
+        elif cfg.model_type in ["oneprot_15", "oneprot_16"]:
+            input_dim = 1280
+        else:
+            input_dim = 512
         if self.cfg.task_name == "HumanPPI":
             input_dim = input_dim * 2
 
-        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPPI"]:
+        # Determine output_dim based on task_name
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPPI", "ThermoStability"]:
             output_dim = 1
-            self.loss_fn = F.binary_cross_entropy_with_logits
-        elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
-            if self.cfg.task_name == "EC":
-                output_dim = 585
-            elif self.cfg.task_name == "GO-BP":
-                output_dim = 1943
-            elif self.cfg.task_name == "GO-MF":
-                output_dim = 489
-            elif self.cfg.task_name == "GO-CC":
-                output_dim = 320
+        elif self.cfg.task_name == "EC":
+            output_dim = 585
+        elif self.cfg.task_name == "GO-BP":
+            output_dim = 1943
+        elif self.cfg.task_name == "GO-MF":
+            output_dim = 489
+        elif self.cfg.task_name == "GO-CC":
+            output_dim = 320
+        elif self.cfg.task_name == "DeepLoc10":
+            output_dim = 10
+        else:
+            raise ValueError(f"Unknown task_name: {self.cfg.task_name}")
 
+        self.model = MLP(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            hidden_dims=cfg.model.hidden_dims,
+            dropout_rate=cfg.model.dropout_rate,
+            use_batch_norm=cfg.model.use_batch_norm,
+            use_layer_norm=cfg.model.use_layer_norm,
+            activation=cfg.model.activation,
+            use_residual=cfg.model.use_residual
+        )
+
+        # Set loss function based on task_name
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPPI", "EC", "GO-BP", "GO-MF", "GO-CC"]:
             self.loss_fn = F.binary_cross_entropy_with_logits
         elif self.cfg.task_name in ["ThermoStability"]:
-            output_dim = 1
             self.loss_fn = F.mse_loss
         else:  # multi_class
-            if self.cfg.task_name in ["TopEnzyme"]:
-                output_dim = 826
-            elif self.cfg.task_name in ["DeepLoc10"]:
-                output_dim = 10
             self.loss_fn = F.cross_entropy
-
-        self.model = MLPHead(input_dim, output_dim)
 
     def forward(self, x):
         return self.model(x)
@@ -177,21 +220,18 @@ class EvaluationModule(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPI"]:
+        if self.cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPPI"]:
             y_hat = y_hat.squeeze(1)
             preds = torch.sigmoid(y_hat)
         elif self.cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
             preds = torch.sigmoid(y_hat)
         elif self.cfg.task_name in ["ThermoStability"]:
-            preds = y_hat.squeeze(
-                1
-            )  # For regression, we don't need to apply any activation
+            preds = y_hat.squeeze(1)
         else:  # multi_class
             preds = torch.softmax(y_hat, dim=1)
             preds = torch.argmax(preds, dim=1)
 
         return preds, y
-
 
 def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
     model = EvaluationModule(cfg)
@@ -199,7 +239,7 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
     # Determine the accelerator and devices based on GPU availability
     if torch.cuda.is_available():
         accelerator = "gpu"
-        fit_devices = 1
+        fit_devices = 4
         predict_devices = 1
     else:
         accelerator = "cpu"
@@ -214,7 +254,6 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
         log_rank_zero_only=True,
     )
 
-    # Trainer for fitting (multi-GPU if available, otherwise CPU)
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss_epoch",
         mode="min",
@@ -236,7 +275,7 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
     # Load the best model
     best_model_path = checkpoint_callback.best_model_path
     model = EvaluationModule.load_from_checkpoint(best_model_path)
-    # Trainer for prediction (single GPU if available, otherwise CPU)
+
     predict_trainer = pl.Trainer(
         accelerator=accelerator,
         devices=predict_devices,
@@ -255,11 +294,12 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
         if cfg.task_name in ["MetalIonBinding", "DeepLoc2", "HumanPPI"]:
             y_pred = torch.cat([p[0] for p in predictions]).cpu().numpy()
             y_true = torch.cat([p[1] for p in predictions]).cpu().numpy()
-            print(y_true.shape)
             accuracy = accuracy_score(y_true, y_pred > 0.5)
             f1_micro = f1_score(y_true, y_pred > 0.5, average="micro")
             auc = roc_auc_score(y_true, y_pred)
             results[f"{partition}_accuracy"] = accuracy
+            results[f"{partition}_f1_micro"] = f1_micro
+            results[f"{partition}_auc"] = auc
 
         elif cfg.task_name in ["EC", "GO-BP", "GO-MF", "GO-CC"]:
             y_pred = torch.cat([p[0] for p in predictions]).cpu()
@@ -273,6 +313,8 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
             mse = mean_squared_error(y_true, y_pred)
             r2 = r2_score(y_true, y_pred)
             spearman_rho, _ = spearmanr(y_true, y_pred)
+            results[f"{partition}_mse"] = mse
+            results[f"{partition}_r2"] = r2
             results[f"{partition}_spearman_rho"] = spearman_rho
 
         else:  # multi_class
@@ -280,12 +322,10 @@ def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
             y_true = torch.cat([p[1] for p in predictions]).cpu().numpy()
             accuracy = accuracy_score(y_true, y_pred)
             f1_micro = f1_score(y_true, y_pred, average="micro")
-
             results[f"{partition}_accuracy"] = accuracy
             results[f"{partition}_f1_micro"] = f1_micro
 
     return results
-
 
 @hydra.main(
     version_base="1.3",
@@ -305,6 +345,12 @@ def main(cfg: DictConfig) -> None:
         cfg.sweep.learning_rate,
         cfg.sweep.batch_size,
         cfg.sweep.max_epochs,
+        cfg.sweep.hidden_dims,
+        cfg.sweep.dropout_rate,
+        cfg.sweep.use_batch_norm,
+        cfg.sweep.use_layer_norm,
+        cfg.sweep.activation,
+        cfg.sweep.use_residual,
         cfg.sweep.task_name,
         cfg.sweep.model_type,
     )
@@ -313,6 +359,12 @@ def main(cfg: DictConfig) -> None:
         lr,
         batch_size,
         max_epochs,
+        hidden_dims,
+        dropout_rate,
+        use_batch_norm,
+        use_layer_norm,
+        activation,
+        use_residual,
         task_name,
         model_type,
     ) in param_combinations:
@@ -320,6 +372,12 @@ def main(cfg: DictConfig) -> None:
         cfg.model.learning_rate = lr
         cfg.model.batch_size = batch_size
         cfg.model.max_epochs = max_epochs
+        cfg.model.hidden_dims = hidden_dims
+        cfg.model.dropout_rate = dropout_rate
+        cfg.model.use_batch_norm = use_batch_norm
+        cfg.model.use_layer_norm = use_layer_norm
+        cfg.model.activation = activation
+        cfg.model.use_residual = use_residual
         cfg.task_name = task_name
         cfg.model_type = model_type
 
@@ -330,9 +388,11 @@ def main(cfg: DictConfig) -> None:
         save_results_to_csv(results, cfg)
 
         print(f"Results for {task_name}:")
-        print(
-            f"Learning rate: {lr}, Batch size: {batch_size}, Max epochs: {max_epochs}"
-        )
+        print(f"Learning rate: {lr}, Batch size: {batch_size}, Max epochs: {max_epochs}")
+        print(f"Hidden dims: {hidden_dims}, Dropout rate: {dropout_rate}")
+        print(f"Use batch norm: {use_batch_norm}, Use layer norm: {use_layer_norm}")
+        print(f"Activation: {activation}, Use residual: {use_residual}")
+        print(f"Model type: {model_type}")
         print(results)
         print("--------------------")
 

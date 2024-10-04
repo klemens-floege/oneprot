@@ -72,7 +72,7 @@ class OneProtDataModule(LightningDataModule):
                 drop_last=False,
             )
 
-        return CombinedLoader(iterables, "max_size_cycle" if shuffle else "sequential")
+        return CombinedLoader(iterables, "min_size_cycle" if shuffle else "sequential")
 
     def train_dataloader(self):
         return self._create_dataloader("train", shuffle=True)
