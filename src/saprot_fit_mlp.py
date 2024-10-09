@@ -120,14 +120,14 @@ class EvaluationModule(pl.LightningModule):
         self.cfg = cfg
         self.save_hyperparameters()
 
-        if cfg.model_type == "esm2":
+        if cfg.model_type == "esm2" or cfg.model_type == "saprot":
             input_dim = 1280
         elif cfg.model_type in ["oneprot_9"]:
             input_dim = 256
         elif cfg.model_type in ["oneprot_15", "oneprot_16"]:
             input_dim = 1280
         else:
-            input_dim = 512
+            input_dim = 1024
         if self.cfg.task_name == "HumanPPI":
             input_dim = input_dim * 2
 
@@ -144,6 +144,8 @@ class EvaluationModule(pl.LightningModule):
             output_dim = 320
         elif self.cfg.task_name == "DeepLoc10":
             output_dim = 10
+        elif self.cfg.task_name == "TopEnzyme":
+            output_dim = 826
         else:
             raise ValueError(f"Unknown task_name: {self.cfg.task_name}")
 
@@ -232,6 +234,8 @@ class EvaluationModule(pl.LightningModule):
             preds = torch.argmax(preds, dim=1)
 
         return preds, y
+
+
 
 def evaluate(cfg: DictConfig, data_module: EmbeddingDataModule) -> Dict:
     model = EvaluationModule(cfg)

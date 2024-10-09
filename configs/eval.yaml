@@ -7,14 +7,83 @@ defaults:
   - hydra: default.yaml
   - _self_
 
+data:
+  modalities:
+    pocket:
+      dataset:
+        pocket: true
+      batch_size:
+        train: 32
+        val: 25
+    struct_graph:
+      batch_size:
+        train: 32
+        val: 25
+    # struct_token:
+    #   batch_size:
+    #     train: 16
+    #     val: 25
+    text:
+      dataset:
+        text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+      batch_size:
+        train: 32
+        val: 25
+    seqsim:  
+      batch_size:
+          train: 32
+          val: 25
+
+model:
+  _target_: src.models.oneprot_module.OneProtLitModule
+
+  components:
+    sequence:
+      model_name_or_path: facebook/esm2_t33_650M_UR50D
+      pooling_type: attention1d
+      output_dim: 1024
+      proj_type: linear
+      frozen: true
+      use_logit_scale: false
+      learnable_logit_scale: false
+    # struct_token:
+    #   model_name_or_path: facebook/esm2_t12_35M_UR50D
+    #   pooling_type: mean
+    #   proj_type: linear
+    #   use_logit_scale: true
+    #   learnable_logit_scale: false
+    struct_graph:
+      proj_type: linear
+      use_logit_scale: true
+      learnable_logit_scale: false
+    pocket:
+      proj_type: linear
+      use_logit_scale: true
+      learnable_logit_scale: false
+    text:
+      pooling_type: cls
+      proj_type: mlp
+      use_lora: false
+      lora_r: 4
+      lora_alpha: 8
+      lora_dropout: 0.1
+      lora_target_modules:
+      - query
+      - key
+      - value
+      frozen: true
+      use_logit_scale: true
+      
+      learnable_logit_scale: false
+
 task_name: "cross_modality_retrieval"
 tags: ${data.data_modalities}
 
 # Checkpoint path for the trained model
-ckpt_path: null
+ckpt_path: /p/project1/hai_oneprot/bazarova1/oneprot-refined/logs/train/runs/2024-10-02_15-09-35/checkpoints/best.ckpt
 
 # Retrieval dataset path
-retrieval_dataset: "/path/to/retrieval/dataset"
+retrieval_dataset: "/p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss"
 
 # Evaluation parameters
 eval_ks: [1, 5, 10]

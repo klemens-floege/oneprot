@@ -125,10 +125,10 @@ def load_data(cfg: DictConfig) -> Dict[str, np.ndarray]:
             cfg.emb_dir,
             f"{cfg.model_type}/{cfg.task_name}/{partition}/{cfg.task_name}_{partition}_embeddings_labels.pt",
         )
+ 
         if os.path.exists(embedding_path) and os.path.exists(embedding_path):
             print(f"Loading Embeddings From {embedding_path}")
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
             embeddings_w_target = torch.load(embedding_path, map_location=device)
             embeddings = embeddings_w_target["embeddings"]
             targets = embeddings_w_target["labels_fitness"]

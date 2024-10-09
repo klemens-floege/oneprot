@@ -84,6 +84,8 @@ class CombinedDataset(Dataset):
             except KeyError:
                 logger.warning(f"KeyError: --{struct_id}-- or one of its pockets not found in h5 file")
         
+
+        
         if self.cfg.remove_hash:
             structures = [s.replace("#", "") for s in structures]
         

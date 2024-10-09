@@ -7,7 +7,7 @@ import torch
 import pytorch_lightning as pl
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, EsmForMaskedLM, EsmTokenizer
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import pyrootutils
@@ -68,13 +68,14 @@ class SequenceDataset(Dataset):
 
 class SequenceEmbedding(pl.LightningModule):
     def __init__(
-        self, model: pl.LightningModule, tokenizer, is_esm2: bool, output_dir: str
+        self, model: pl.LightningModule, tokenizer, is_esm2: bool, output_dir: str, is_saprot: bool = False
     ):
         super().__init__()
         self.model = model
         self.tokenizer = tokenizer
         self.is_esm2 = is_esm2
         self.output_dir = output_dir
+        self.is_saprot = is_saprot
 
     def forward(self, sequences: List[str]):
         inputs = self.tokenizer(
@@ -91,6 +92,14 @@ class SequenceEmbedding(pl.LightningModule):
                 outputs = self.model(**inputs)
             attention_mask = inputs["attention_mask"].unsqueeze(-1)
             last_hidden_state = outputs.last_hidden_state
+            embeddings = last_hidden_state * attention_mask
+            embeddings = embeddings.sum(dim=1) / attention_mask.sum(dim=1)
+            return embeddings
+        elif self.is_saprot:
+            with torch.no_grad():
+                outputs = self.model(**inputs,output_hidden_states=True)
+            attention_mask = inputs["attention_mask"].unsqueeze(-1)
+            last_hidden_state = outputs.hidden_states[-1]
             embeddings = last_hidden_state * attention_mask
             embeddings = embeddings.sum(dim=1) / attention_mask.sum(dim=1)
             return embeddings
@@ -216,16 +225,23 @@ def generate_single_embeddings(
         model = AutoModel.from_pretrained(cfg.esm_model)
         tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
         is_esm2 = True
+        is_saprot = False
+    elif cfg.model.name =="saprot":
+        model = EsmForMaskedLM.from_pretrained(cfg.saprot_model)
+        tokenizer = EsmTokenizer.from_pretrained(cfg.tokenizer_name)
+        is_saprot = True
+        is_esm2 = False
     else:
         model = load_custom_model(cfg)
         tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
         is_esm2 = False
+        is_saprot = False
 
     # Create a unique output directory for each task and split
     task_output_dir = os.path.join(cfg.output_dir, task_name, split, "single_embs")
     os.makedirs(task_output_dir, exist_ok=True)
 
-    sequence_embedding = SequenceEmbedding(model, tokenizer, is_esm2, task_output_dir)
+    sequence_embedding = SequenceEmbedding(model, tokenizer, is_esm2, task_output_dir, is_saprot)
 
     trainer = pl.Trainer(
         accelerator="gpu",

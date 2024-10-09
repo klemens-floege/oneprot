@@ -4,7 +4,7 @@ defaults:
   - modalities/pocket
   - modalities/seqsim
   - modalities/struct_graph
-  - modalities/struct_token
+  #- modalities/struct_token
   - modalities/text
   # Add more modalities as needed
 

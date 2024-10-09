@@ -1,13 +1,15 @@
 #!/bin/bash -x
 
-#SBATCH --account hai_hmgu                                                   # specify the account name, otherwise the job will not run
-#SBATCH --time 05:00:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
-#SBATCH --cpus-per-task=24                                                         # do not change
-#SBATCH --ntasks-per-node 1                                                        # number of tasks per node; each node has 4 GPUs
-#SBATCH --nodes 4 # the number of nodes; if you request 4 nodes you get 16 GPUs
-#SBATCH --output /p/project/hai_oneprot/merdivan1/oneprot/slurms/%j.out  # specify the file for the slurm output; make sure to change it to your folder
-#SBATCH --error /p/project/hai_oneprot/merdivan1/oneprot/slurms/%j_err.out
+##SBATCH --account westai0009 
+#SBATCH --account found                                                  # specify the account name, otherwise the job will not run
+#SBATCH --time 04:00:00                                                            # pecify the running time; on develbooster it is limited to 2 hours
+#SBATCH --cpus-per-task=12                                                         # do not change
+#SBATCH --ntasks-per-node 4                                                        # number of tasks per node; each node has 4 GPUs
+#SBATCH --nodes 16 # the number of nodes; if you request 4 nodes you get 16 GPUs
+#SBATCH --output /p/project/hai_oneprot/bazarova1/oneprot-refined/slurms/%j.out  # specify the file for the slurm output; make sure to change it to your folder
+#SBATCH --error /p/project/hai_oneprot/bazarova1/oneprot-refined/slurms/%j_err.out
 ##SBATCH --dependency=afterany:13161002
+##SBATCH --partition dc-wai
 #SBATCH --partition booster                                                   # the walltime on develbooster is 2 hours, on booster 24 hours; maximum number of nodes on develbooster is 4 nodes
 #SBATCH --gres gpu:4                                                               # do not change
 
@@ -31,6 +33,10 @@ MASTER_ADDR="$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)"
 # Allow communication over InfiniBand cells.
 export MASTER_ADDR="${MASTER_ADDR}i"
 
+export NCCL_IB_TIMEOUT=50
+export UCX_RC_TIMEOUT=4s
+export NCCL_IB_RETRY_CNT=10
+
 
 module purge
 module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
@@ -48,7 +54,7 @@ module load Stages/2024  GCCcore/.12.3.0 Apptainer-Tools/2024
 
 # The below script activates a virtual environment within the container
 
-srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project1/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project1/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py +experiment=train_ddp_3.yaml\""
+srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv /p/project1/hai_oneprot/merdivan1/singularity_docker_jupyter/singularity_docker_jupyter.sif bash -c \"source /p/project1/hai_oneprot/bazarova1/sc_venv_template_erinc/venv/bin/activate && python src/train.py +experiment=train_ddp_2.yaml\""
 
 #srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES="0,1,2,3";export PYTHONPATH="";  export HYDRA_FULL_ERROR=1; source /p/project/hai_oneprot/bazarova1/sc_venv_template_for_unimol/activate.sh && python src/train.py experiment=train_ddp"
 

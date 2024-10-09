@@ -105,7 +105,6 @@ class OneProtLitModule(LightningModule):
  
         sequence_features = self.forward(sequence_inputs, "sequence")
         modality_features = self.forward(modality_inputs, modality)
-        
         self.metrics["val_"+modality].update(sequence_features, modality_features)
 
         loss = self.loss_fn(sequence_features, modality_features)

@@ -6,13 +6,18 @@ defaults:
   - override hydra/sweeper: basic
 
 evaluate_on: ["train", "valid", "test"]
-emb_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/
+emb_dir: /p/project/hai_oneprot/bazarova1/oneprot-refined/embeddings/
 
-results_dir: /p/project/hai_oneprot/merdivan1/oneprot/results/
+results_dir: /p/project/hai_oneprot/bazarova1/oneprot-refined/results/
 
 sort_by: accuracy
 
-model_type: esm2
+model_type: oneprot-struct-graph-pocket-text-seqsim
+
+
+task_name: TopEnzyme
+
+threshold: .inf
 
 hydra:
   sweeper:
@@ -28,8 +33,8 @@ hydra:
       ++downstream_model.reg_alpha: 0, 0.1
       ++downstream_model.reg_lambda: 10
       ++downstream_model.tree_method: gpu_hist
-      ++task_name: TopEnzyme #MetalIonBinding #, EC, GO-BP, GO-MF, GO-CC, DeepLoc2, DeepLoc10, HumanPPI #TopEnzyme
-      ++model_type: oneprot, esm2
+      ++task_name: TopEnzyme #EC #, GO-BP, GO-MF, GO-CC, DeepLoc2, DeepLoc10, TopEnzyme
+      ++model_type: oneprot-struct-graph-pocket-text-seqsim
 
 
   run:

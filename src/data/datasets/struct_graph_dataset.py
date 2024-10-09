@@ -17,6 +17,7 @@ class StructDataset(Dataset):
         self.pocket = pocket
         self.split = split
         self.h5_file = f'{data_dir}/{"pockets_100_residues" if pocket else "seqstruc"}.h5'
+        self.h5_file_seq= f'{data_dir}/seqstruc.h5'
         self.max_length = max_length
         self.use_struct_mask = use_struct_mask
         self.use_struct_coord_noise = use_struct_coord_noise
@@ -43,7 +44,7 @@ class StructDataset(Dataset):
         sequences, structures = [], []
         for seq_id in seq_ids:
             try:
-                with h5py.File(self.h5_file, 'r') as file:
+                with h5py.File(self.h5_file_seq, 'r') as file:
                     sequence = file[seq_id]['structure']['0']['A']['residues']['seq1'][()].decode('utf-8')
                     sequences.append(sequence)
                 structures.append(protein_to_graph(seq_id, self.h5_file, 'non_pdb', 'A', pockets=self.pocket))

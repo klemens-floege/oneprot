@@ -76,7 +76,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     else:
         log.info("No checkpoint provided, starting training from scratch.")
     
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, datamodule=datamodule,ckpt_path=cfg.ckpt_path)
 
     train_metrics = trainer.callback_metrics
 
