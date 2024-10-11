@@ -4,8 +4,8 @@ from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 import json
 import os
+import pandas as pd
 from typing import List, Tuple, Dict
-from src.data.utils.msa_utils import read_msa, filter_and_create_msa_file_list, greedy_select
 
 class SequenceSimDataset(Dataset):
     def __init__(
@@ -14,39 +14,37 @@ class SequenceSimDataset(Dataset):
         split: str,
         seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D",
         max_length: int = 1024,
-        msa_depth: int = 100,
         modality: str = "combined_seqsim_msa"
     ):
         """
-        Initialize the CombinedSeqSimMsaDataset.
+        Initialize the SequenceSimDataset.
 
         Args:
             data_dir (str): Directory containing the data files.
             split (str): Data split ('train', 'val', or 'test').
             seq_tokenizer (str): Name of the sequence tokenizer model.
             max_length (int): Maximum sequence length for tokenization.
-            msa_depth (int): Depth of MSA sequences.
             modality (str): Modality identifier for the dataset.
         """
         self.data_dir = data_dir
         self.split = split
         self.max_length = max_length
-        self.msa_depth = msa_depth
         self.seq_tokenizer = AutoTokenizer.from_pretrained(seq_tokenizer)
         self.modality = modality
 
         self._load_data()
 
     def _load_data(self):
-        """Load sequence IDs, mutation dictionaries, and MSA files."""
+        """Load sequence IDs, mutation dictionaries, and MSA data."""
         with open(os.path.join(self.data_dir, f'{self.split}_seqsim.txt'), 'r') as f:
             self.sequence_ids = [line.strip() for line in f]
         
-        self.benign_mutations = self._load_json('clinvar_full_benign_mutations_clean.json')
-        self.pathogenic_mutations = self._load_json('clinvar_full_pathogenic_mutations_clean.json')
+        self.benign_mutations = self._load_json('clinvar_full_benign_mutations.json')
+        self.pathogenic_mutations = self._load_json('clinvar_full_pathogenic_mutations.json')
 
-        msa_filename = f"{self.data_dir}/{self.split}_msa.csv"
-        self.msa_files = filter_and_create_msa_file_list(msa_filename)
+        # Load MSA data from CSV file
+        msa_filename = f"{self.data_dir}/{self.split}_msa_seqsim.csv"
+        self.msa_data = pd.read_csv(msa_filename)
 
     def _load_json(self, filename: str) -> Dict:
         """Load a JSON file."""
@@ -56,14 +54,14 @@ class SequenceSimDataset(Dataset):
     def __len__(self) -> int:
         """Return the number of items in the dataset."""
         if self.split == "train":
-            return len(self.msa_files)
+            return len(self.msa_data)
         return 1000
 
-    def __getitem__(self, idx: int) -> Tuple[str, str]:
+    def __getitem__(self, idx: int) -> Tuple[str, pd.Series]:
         """Get a single item from the dataset."""
         seq_id = self.sequence_ids[idx % len(self.sequence_ids)]
-        msa_file = self.msa_files[idx]
-        return seq_id, msa_file
+        msa_row = self.msa_data.iloc[idx]
+        return seq_id, msa_row
 
     @staticmethod
     def _apply_mutation(sequence: str, mutation: str) -> str:
@@ -73,28 +71,24 @@ class SequenceSimDataset(Dataset):
         assert sequence[position] == letter1, f"Mutation mismatch: expected {letter1} at position {position}, found {sequence[position]}"
         return sequence[:position] + letter2 + sequence[position+1:]
 
-    def _get_msa_sequence(self, msa_file: str) -> Tuple[str, str]:
-        """Get the original and a random MSA sequence from the MSA file."""
-        msa_data = read_msa(msa_file)
-        random_mode = random.choice(['max', 'min'])
-        msa_data = greedy_select(msa_data, num_seqs=self.msa_depth, mode=random_mode)
-        original_seq = msa_data[0][1]
-        random_ind = random.randint(1, len(msa_data) - 1)
-        msa_seq = msa_data[random_ind][1]
-        return original_seq, msa_seq
+    def _get_msa_sequence(self, msa_row: pd.Series) -> Tuple[str, str]:
+        """Get the original and aligned MSA sequence from the MSA data."""
+        original_seq = msa_row['req_seq']
+        aligned_seq = msa_row['aligned_seq']
+        return original_seq, aligned_seq
 
-    def collate_fn(self, batch: List[Tuple[str, str]]) -> Tuple[torch.Tensor, torch.Tensor, str]:
+    def collate_fn(self, batch: List[Tuple[str, pd.Series]]) -> Tuple[torch.Tensor, torch.Tensor, str]:
         """Collate function for DataLoader."""
         list1 = []  # Will contain original_msa, seq_id, pathogenic1
-        list2 = []  # Will contain msa_seq, benign, pathogenic2
+        list2 = []  # Will contain aligned_seq, benign, pathogenic2
 
-        for seq_id, msa_file in batch:
-            # Get original and MSA sequences
-            original_msa, msa_seq = self._get_msa_sequence(msa_file)
+        for seq_id, msa_row in batch:
+            # Get original and aligned sequences
+            original_msa, aligned_seq = self._get_msa_sequence(msa_row)
             
-            # Add original_msa to list1 and msa_seq to list2
+            # Add original_msa to list1 and aligned_seq to list2
             list1.append(original_msa)
-            list2.append(msa_seq)
+            list2.append(aligned_seq)
 
             # Add seq_id to list1
             list1.append(seq_id)

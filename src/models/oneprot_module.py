@@ -11,6 +11,7 @@ class OneProtLitModule(LightningModule):
         self,
         components: Dict[str, Any],
         optimizer: torch.optim.Optimizer,
+        train_on_all_modalities_after_step: int = 0,
         scheduler: torch.optim.lr_scheduler = None,
         use_seqsim: bool = False,
         loss_fn: str = 'CLIP',
@@ -24,6 +25,7 @@ class OneProtLitModule(LightningModule):
         
         self.network = torch.nn.ModuleDict(components)
         self.modalities = list(components.keys())
+        self.train_on_all_modalities_after_step = train_on_all_modalities_after_step
         self.use_l1_regularization = use_l1_regularization
         self.loss_fn = self._create_loss_fn(loss_fn, local_loss, gather_with_grad)
         self.train_loss = MeanMetric()
@@ -79,11 +81,17 @@ class OneProtLitModule(LightningModule):
         
         opt = self.optimizers()    
         
-        for modality, inputs in list(batch.items()):     
-            if not self.use_seqsim and modality =="seqsim":
-                continue
-            
-            sequence_inputs, modality_inputs, modality, _ = inputs
+        current_step = self.global_step
+        if current_step < self.train_on_all_modalities_after_step:
+            modalities_to_train = ["struct_token"]
+        else:
+            modalities_to_train = list(batch.keys())
+            if not self.use_seqsim and "seqsim" in modalities_to_train:
+                modalities_to_train.remove("seqsim")
+        
+        for modality in modalities_to_train:     
+            inputs = batch[modality]
+            sequence_inputs, modality_inputs, _, _ = inputs
             sequence_features = self.forward(sequence_inputs, "sequence")
             modality_features = self.forward(modality_inputs, modality)
             opt.zero_grad()

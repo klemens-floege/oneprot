@@ -1,99 +1,32 @@
-defaults:
-  - data: oneprot
-  - model: oneprot
-  - logger: wandb
-  - paths: default.yaml
-  - extras: default.yaml
-  - hydra: default.yaml
-  - _self_
-
-data:
-  modalities:
-    pocket:
-      dataset:
-        pocket: true
-      batch_size:
-        train: 32
-        val: 25
-    struct_graph:
-      batch_size:
-        train: 32
-        val: 25
-    # struct_token:
-    #   batch_size:
-    #     train: 16
-    #     val: 25
-    text:
-      dataset:
-        text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
-      batch_size:
-        train: 32
-        val: 25
-    seqsim:  
-      batch_size:
-          train: 32
-          val: 25
+# config.yaml
 
 model:
-  _target_: src.models.oneprot_module.OneProtLitModule
+  config_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2024-10-03_12-44-14/config.yaml
+  ckpt_path: /p/project/hai_oneprot/merdivan1/oneprot/logs/train/runs/2024-10-03_12-44-14/checkpoints/best.ckpt
 
-  components:
-    sequence:
-      model_name_or_path: facebook/esm2_t33_650M_UR50D
-      pooling_type: attention1d
-      output_dim: 1024
-      proj_type: linear
-      frozen: true
-      use_logit_scale: false
-      learnable_logit_scale: false
-    # struct_token:
-    #   model_name_or_path: facebook/esm2_t12_35M_UR50D
-    #   pooling_type: mean
-    #   proj_type: linear
-    #   use_logit_scale: true
-    #   learnable_logit_scale: false
-    struct_graph:
-      proj_type: linear
-      use_logit_scale: true
-      learnable_logit_scale: false
-    pocket:
-      proj_type: linear
-      use_logit_scale: true
-      learnable_logit_scale: false
-    text:
-      pooling_type: cls
-      proj_type: mlp
-      use_lora: false
-      lora_r: 4
-      lora_alpha: 8
-      lora_dropout: 0.1
-      lora_target_modules:
-      - query
-      - key
-      - value
-      frozen: true
-      use_logit_scale: true
-      
-      learnable_logit_scale: false
+dataset:
+  csv_file_path: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss/test_all.csv
+  data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss/
+  max_sequence_length: 1024
+  text_max_length: 512
+  text_tokenizer: microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+  seq_tokenizer: facebook/esm2_t33_650M_UR50D
+  remove_hash: true
+  msa_model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
+  msa_depth: 50
+  max_length: 1024
 
-task_name: "cross_modality_retrieval"
-tags: ${data.data_modalities}
+dataloader:
+  batch_size: 50
+  shuffle: false
+  num_workers: 4
 
-# Checkpoint path for the trained model
-ckpt_path: /p/project1/hai_oneprot/bazarova1/oneprot-refined/logs/train/runs/2024-10-02_15-09-35/checkpoints/best.ckpt
+output:
+  csv_path: /p/project/hai_oneprot/merdivan1/oneprot/results/retrieval_metrics.csv
 
-# Retrieval dataset path
-retrieval_dataset: "/p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss"
-
-# Evaluation parameters
-eval_ks: [1, 5, 10]
-batch_size: 32
-num_workers: 4
-pin_memory: True
-
-# Embedding transformation function
-transform_func: "identity"  # Options: "identity", "threshold"
-bit_threshold: 0.5  # Only used if transform_func is "threshold"
-
-# seed for random number generators
-seed: 1881
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

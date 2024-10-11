@@ -206,7 +206,7 @@ def write_results_to_csv(results: Dict[str, Dict[str, float]], output_path: str)
                     f"{metrics[f'{direction}_median_rank']:<11}"
                 ]
                 writer.writerow(row)
-@hydra.main(config_path="../configs", config_name="calculate_retrieval.yaml")
+@hydra.main(config_path="../configs", config_name="eval.yaml")
 def main(cfg: DictConfig):
     # Load model using the provided function
     model = load_custom_model(cfg)
