@@ -11,3 +11,4 @@ loss_fn: CLIP
 local_loss: true
 gather_with_grad: true
 use_l1_regularization: true
+train_on_all_modalities_after_step: 0
