@@ -44,6 +44,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     log.info("Instantiating callbacks...")
+
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
     log.info("Instantiating loggers...")
@@ -72,11 +73,19 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     if cfg.get("ckpt_path"):
         log.info("Loading model weights from checkpoint!")
         checkpoint = torch.load(cfg.ckpt_path)
-        model.load_state_dict(checkpoint['state_dict'])
+        model_state_dict = checkpoint['state_dict']
+        
+        if 'model.' in next(iter(checkpoint['state_dict'].keys())):
+            model_state_dict = {k.replace('model.', ''): v for k, v in checkpoint['state_dict'].items() if k.startswith('model.')}
+        incompatible_keys = model.load_state_dict(model_state_dict, strict=True)
+        del checkpoint, model_state_dict
+        torch.cuda.empty_cache()
+        #model.load_state_dict(checkpoint['state_dict'])
     else:
         log.info("No checkpoint provided, starting training from scratch.")
     
-    trainer.fit(model=model, datamodule=datamodule,ckpt_path=cfg.ckpt_path)
+#    trainer.fit(model=model, datamodule=datamodule,ckpt_path=cfg.ckpt_path)
+    trainer.fit(model=model, datamodule=datamodule)
 
     train_metrics = trainer.callback_metrics
 

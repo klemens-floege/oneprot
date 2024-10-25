@@ -7,7 +7,7 @@ import h5py
 
 class StructTokenDataset(Dataset):
     def __init__(self, data_dir: str, filename: str, split: str, max_length: int = 1024, 
-                 seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D", remove_hash=True):
+                 seq_tokenizer: str = "facebook/esm2_t33_650M_UR50D", remove_hash=True,full=False):
         """
         Initialize the Structure Transformation Dataset.
         
@@ -21,7 +21,13 @@ class StructTokenDataset(Dataset):
         self.split = split
         self.remove_hash = remove_hash
         self.max_length = max_length
-        txt_file = f'{data_dir}/{self.split}_saprot.txt'
+        if self.split == "train":
+            if full:
+                txt_file = f'{data_dir}/{self.split}_saprot_full.txt'
+            else:
+                txt_file = f'{data_dir}/{self.split}_saprot.txt'
+        else:
+            txt_file = f'{data_dir}/{self.split}_saprot.txt'
   
         try:
             with open(txt_file, 'r') as file:
