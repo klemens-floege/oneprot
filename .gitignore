@@ -159,7 +159,7 @@ multirun/
 .env
 *.csv
 *.sh
-*.sbatch
+#*.sbatch
 *.sif
 # Aim logging
 .aim
