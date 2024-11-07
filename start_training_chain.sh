@@ -1,15 +1,15 @@
 #!/bin/bash
 
-job_script="train_oneprot_ddp.sbatch"
+job_script="train_script.sbatch"
 num_iterations=$1
 last_job_id=""
 run_name=$(date '+%Y-%m-%d__%H:%M:%S')
-run_dir="/p/project/hai_oneprot/$USER/oneprot/slurms/manual_ckpts/${run_name}/"
+run_dir="/path/to/outputs/manual_ckpts/${run_name}/"
 
 for ((i = 1; i <= num_iterations; i++)); do
-    output_dir="/p/project/hai_oneprot/$USER/oneprot/slurms/${run_name}/train_${i}_out.out"
-    error_dir="/p/project/hai_oneprot/$USER/oneprot/slurms/${run_name}/train_${i}_err.out"
-    mkdir -p "/p/project/hai_oneprot/$USER/oneprot/slurms/${run_name}/"
+    output_dir="/path/to/outputs/${run_name}/train_${i}_out.out"
+    error_dir="/path/to/outputs/${run_name}/train_${i}_err.out"
+    mkdir -p "/path/to/outputs/${run_name}/"
 
     if [ -z "$last_job_id" ]; then
         # First submission, no dependency
