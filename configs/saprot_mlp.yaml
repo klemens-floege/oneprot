@@ -5,8 +5,8 @@ defaults:
   - override hydra/sweeper: basic
 
 evaluate_on: ["train", "valid", "test"]
-emb_dir: /p/project/hai_oneprot/merdivan1/oneprot/embeddings/
-results_dir: /p/project/hai_oneprot/merdivan1/oneprot/results/
+emb_dir: /path/to/output_dir/embeddings/
+results_dir: /path/to/output_dir/results/
 
 # Model configuration
 model:

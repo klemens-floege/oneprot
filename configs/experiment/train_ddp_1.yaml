@@ -35,18 +35,6 @@ data:
       batch_size:
           train: 32
           val: 25
-    # msa:
-    #   dataset:
-    #     _target_: src.data.datasets.msa_dataset.MSADataset
-    #     data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
-    #     model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
-    #     seq_tokenizer: facebook/esm2_t33_650M_UR50D
-    #     max_length: 128
-    #     msa_depth: 50
-    #   batch_size:
-    #     train: 16
-    #     val: 8
-    #     test: 128
   
 
 model:
@@ -90,15 +78,7 @@ model:
       use_logit_scale: true
       
       learnable_logit_scale: false
-    # msa:
-    #   _target_: src.models.components.msa_encoder.MsaEncoder
-    #   model_name_or_path: /p/scratch/hai_oneprot/huggingface/models/msa/esm_msa1b_t12_100M_UR50S.pt
-    #   pooling_type: identity
-    #   proj_type: mlp
-    #   output_dim: ${..sequence.output_dim}
-    #   use_logit_scale: true
-    #   learnable_logit_scale: false
-    #   use_all_msa: true
+
       
   loss_fn: CLIP
   use_l1_regularization: true

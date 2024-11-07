@@ -1,8 +1,8 @@
 struct_token:
   dataset:
     #_target_: src.data.datasets.struct_token_dataset.StructTokenDataset
-    data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
-    filename: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss/train_saprot.h5
+    data_dir: /path/to/pretrain/datasets/
+    filename: /path/to/pretrain/datasets/train_saprot.h5
     seq_tokenizer: facebook/esm2_t33_650M_UR50D
   batch_size:
     train: 16

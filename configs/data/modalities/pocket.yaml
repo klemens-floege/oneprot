@@ -1,7 +1,7 @@
 pocket:
   dataset:
     #_target_: src.data.datasets.struct_graph_dataset.StructDataset
-    data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
+    data_dir: /path/to/pretrain/datasets/
     seq_tokenizer: facebook/esm2_t33_650M_UR50D
     use_struct_mask: true
     use_struct_coord_noise: true

@@ -1,6 +1,6 @@
 seqsim:  
   dataset:
-    data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss
+    data_dir: /path/to/pretrain/datasets/
     seq_tokenizer: facebook/esm2_t33_650M_UR50D
     max_length: 1024
   batch_size:

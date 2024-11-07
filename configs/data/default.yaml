@@ -1,5 +1,4 @@
 _target_: src.data.oneprot_datamodule.OneProtDataModule
-#data_dir: /p/scratch/hai_oneprot/merdivan1/pretrain_dataset/50ss 
 default_batch_size: 32
 num_workers: 12
 pin_memory: False

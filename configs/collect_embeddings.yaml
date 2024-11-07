@@ -13,7 +13,7 @@ tokenizer_name: westlake-repl/SaProt_650M_AF2 #facebook/esm2_t33_650M_UR50D
 saprot_model: westlake-repl/SaProt_650M_AF2
 
 # Output directory
-output_dir: "/p/project/hai_oneprot/bazarova1/oneprot-refined/embeddings/{model_name}"
+output_dir: "/path/to/output_dir/embeddings/{model_name}"
 
 # Data processing parameters
 batch_size: 32
@@ -27,16 +27,12 @@ single_batch_mode: false
 # List of model configurations
 models:
   # - name: saprot
-  - name: oneprot_struct_pocket_text_seqsim_max_size_AdamW
-    ckpt_path: /p/scratch/hai_oneprot/checkpoints_refined_051024/2024-10-07_10-36-31/best-v4.ckpt
-    config_path: /p/project1/hai_oneprot/bazarova1/oneprot-refined/logs/train/runs/2024-10-07_10-36-30/config.yaml
-  #  - name: saprot
-  #   ckpt_path: /p/scratch/hai_oneprot/checkpoints_refined_051024/best-v2.ckpt
-  #   config_path: /p/project1/hai_oneprot/bazarova1/oneprot-refined/logs/train/runs/2024-10-06_11-23-56/config.yaml
-  # - name: oneprot_struct_pocket_text_AdamW
-  #   ckpt_path: /p/scratch/hai_oneprot/checkpoints_refined_051024/best-v7.ckpt
-  #   config_path: /p/project1/hai_oneprot/bazarova1/oneprot-refined/logs/train/runs/2024-10-07_03-15-22/config.yaml
-
+  - name: awesome_model
+    ckpt_path: /path/to/checkpoint/best.ckpt
+    config_path: /path/to/config/config.yaml
+  # - name: baseline_model
+  #   ckpt_path: /path/to/checkpoint/best.ckpt
+  #   config_path: /path/to/config/config.yaml  
 
 
 
@@ -44,128 +40,129 @@ tasks:
   HumanPPI:
     label_type: "ppi"
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/HumanPPI/normal_test.csv
+      - /path/to/files/csv_files/HumanPPI/normal_train.csv
+      - /path/to/files/csv_files/HumanPPI/normal_valid.csv
+      - /path/to/files/csv_files/HumanPPI/normal_test.csv
 
   GO-BP:
     label_type: "multi-label"
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_BP_normal_test.csv
+      - /path/to/files/csv_files/GO/AF2_BP_normal_train.csv
+      - /path/to/files/csv_files/GO/AF2_BP_normal_valid.csv
+      - /path/to/files/csv_files/GO/AF2_BP_normal_test.csv
 
   GO-CC:
     label_type: "multi-label"
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_CC_normal_test.csv
+      - /path/to/files/csv_files/GO/AF2_CC_normal_train.csv
+      - /path/to/files/csv_files/GO/AF2_CC_normal_valid.csv
+      - /path/to/files/csv_files/GO/AF2_CC_normal_test.csv
 
   GO-MF:
     label_type: "multi-label"
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/GO/AF2_MF_normal_test.csv
+      - /path/to/files/csv_files/GO/AF2_MF_normal_train.csv
+      - /path/to/files/csv_files/GO/AF2_MF_normal_valid.csv
+      - /path/to/files/csv_files/GO/AF2_MF_normal_test.csv
    
   EC:
     label_type: "multi-label"
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/EC/AF2_normal_test.csv
+      - /path/to/files/csv_files/EC/AF2_normal_train.csv
+      - /path/to/files/csv_files/EC/AF2_normal_valid.csv
+      - /path/to/files/csv_files/EC/AF2_normal_test.csv
    
   MetalIonBinding:
     label_type: classification
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_train.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_valid.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/MetalIonBinding/AF2_normal_test.csv
+      - /path/to/files/csv_files/MetalIonBinding/AF2_normal_train.csv
+      - /path/to/files/csv_files/MetalIonBinding/AF2_normal_valid.csv
+      - /path/to/files/csv_files/MetalIonBinding/AF2_normal_test.csv
   TopEnzyme:
     label_type: classification
     csv_files:
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_train_seq.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_valid_seq.csv
-      - /p/scratch/hai_oneprot/merdivan1/csv_files/TopEnzyme/Comb826_test_seq.csv
+      - /path/to/files/csv_files/TopEnzyme/Comb826_train_seq.csv
+      - /path/to/files/csv_files/TopEnzyme/Comb826_valid_seq.csv
+      - /path/to/files/csv_files/TopEnzyme/Comb826_test_seq.csv
   # DeepLoc2:
   #   label_type: classification
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_train.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_valid.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls2_normal_test.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls2_normal_train.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls2_normal_valid.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls2_normal_test.csv
   # DeepLoc10:
   #   label_type: classification
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_train.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_valid.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/DeepLoc/cls10_normal_test.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls10_normal_train.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls10_normal_valid.csv
+  #     - /path/to/files/csv_files/DeepLoc/cls10_normal_test.csv
   # ThermoStability:
   #   label_type: regression
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_train.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_valid.csv
-  #     - /p/scratch/hai_oneprot/merdivan1/csv_files/Thermostability/normal_test.csv
+  #     - /path/to/files/csv_files/Thermostability/normal_train.csv
+  #     - /path/to/files/csv_files/Thermostability/normal_valid.csv
+  #     - /path/to/files/csv_files/Thermostability/normal_test.csv
 
+#for baselines
 
 # tasks:
   # HumanPPI:
   #   label_type: "ppi"
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/HumanPPI/foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/HumanPPI/foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/HumanPPI/foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/HumanPPI/foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/HumanPPI/foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/HumanPPI/foldseek_test.csv
   
   # GO-BP:
   #   label_type: "multi-label"
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_BP_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_BP_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_BP_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_BP_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_BP_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_BP_foldseek_test.csv
   
   # GO-CC:
   #   label_type: "multi-label"
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_CC_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_CC_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_CC_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_CC_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_CC_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_CC_foldseek_test.csv
   
   # GO-MF:
   #   label_type: "multi-label"
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_MF_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_MF_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/GO/AF2_MF_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_MF_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_MF_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/GO/AF2_MF_foldseek_test.csv
   
   # EC:
   #   label_type: "multi-label"
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/EC/AF2_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/EC/AF2_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/EC/AF2_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/EC/AF2_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/EC/AF2_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/EC/AF2_foldseek_test.csv
   
   # MetalIonBinding:
   #   label_type: classification
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_test.csv    
+  #     - /path/to/files/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/MetalIonBinding/AF2_foldseek_test.csv    
   # DeepLoc2:
   #   label_type: classification
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls2_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls2_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls2_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls2_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls2_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls2_foldseek_test.csv
   # DeepLoc10:
   #   label_type: classification
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls10_foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls10_foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/DeepLoc/cls10_foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls10_foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls10_foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/DeepLoc/cls10_foldseek_test.csv
   # ThermoStability:
   #   label_type: regression
   #   csv_files:
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/Thermostability/foldseek_train.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/Thermostability/foldseek_valid.csv
-  #     - /p/scratch/hai_oneprot/saprot_foldseek_data/Thermostability/foldseek_test.csv
+  #     - /path/to/files/saprot_foldseek_data/Thermostability/foldseek_train.csv
+  #     - /path/to/files/saprot_foldseek_data/Thermostability/foldseek_valid.csv
+  #     - /path/to/files/saprot_foldseek_data/Thermostability/foldseek_test.csv
 

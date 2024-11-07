@@ -6,13 +6,13 @@ defaults:
   - override hydra/sweeper: basic
 
 evaluate_on: ["train", "valid", "test"]
-emb_dir: /p/project/hai_oneprot/bazarova1/oneprot-refined/embeddings/
+emb_dir: /path/to/output_dir/embeddings/
 
-results_dir: /p/project/hai_oneprot/bazarova1/oneprot-refined/results/
+results_dir: /path/to/output_dir/results/
 
 sort_by: accuracy
 
-model_type: oneprot-struct-graph-pocket-text-seqsim
+model_type: awesome_model
 
 
 task_name: TopEnzyme
@@ -34,7 +34,7 @@ hydra:
       ++downstream_model.reg_lambda: 10
       ++downstream_model.tree_method: gpu_hist
       ++task_name: TopEnzyme #EC #, GO-BP, GO-MF, GO-CC, DeepLoc2, DeepLoc10, TopEnzyme
-      ++model_type: oneprot-struct-graph-pocket-text-seqsim
+      ++model_type: yet_another_model
 
 
   run:
