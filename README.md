@@ -20,7 +20,7 @@ More details coming soon
 
 ## Description
 
-This project is dedicated to advancing the understanding and application of various modalities related to proteins, starting with sequence, structure and multiple sequence alignments (MSA). We will add more modalities along the way such as GO, Text, Gene, PPI, MD and more. 
+This project is dedicated to advancing the understanding and application of various modalities related to proteins, such as sequence, structure, represented as graphs and as foldseek tokens, pockets and sequence similarity tuples, based on mutational information and multiple sequence alignments (MSA). 
 
 We are aiming to learn aligned embeddings for different protein modalities. These different modalities can later be used on retrieval, prediction and generation tasks for proteins. 
 
