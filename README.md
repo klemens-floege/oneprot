@@ -65,5 +65,7 @@ DownStream Tasks:
 
 ## Environment
 We recommend using PyTorch version 2.1.0 with CUDA-12.1 with the corresponding version of torch-geometric, available for installation via 
+
 `pip install torch_geometric`
+
 `pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu121.html`
