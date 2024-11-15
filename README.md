@@ -48,13 +48,20 @@ We used OpenProteinSet [1], which contains structures, sequences, and MSAs for p
 | Sequence | Pockets | 335086 / 1000 / 1000|
 | Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
-[1] Gustaf Ahdritz, Nazim Bouatta, Sachin Kadyan, Lukas Jarosch, Daniel Berenberg, Ian Fisk, Andrew M. Watkins, Stephen Ra, Richard Bonneau, and Mohammed AlQuraishi. Openproteinset: Training data for structural biology at scale, 2023b. URL https://arxiv.org/abs/2308.05326.\\
+[1] Gustaf Ahdritz, Nazim Bouatta, Sachin Kadyan, Lukas Jarosch, Daniel Berenberg, Ian Fisk, Andrew M. Watkins, Stephen Ra, Richard Bonneau, and Mohammed AlQuraishi. Openproteinset: Training data for structural biology at scale, 2023b. URL https://arxiv.org/abs/2308.05326.
+
 [2] Stephen K Burley, Charmi Bhikadiya, Chunxiao Bi, Sebastian Bittrich, Henry Chao, Li Chen, Paul A Craig, Gregg V Crichlow, Kenneth Dalenberg, Jose M Duarte, et al. Rcsb protein data bank (rcsb. org): delivery of experimentally-determined pdb structures alongside one million computed structure models of proteins from artificial intelligence/-machine learning. Nucleic acids research, 51(D1):D488–D508, 2023.
+
 [3] Mirdita M., von den Driesch L., Galiez C., Martin M. J., Söding J., and Steinegger M. Uniclust databases of clustered and deeply annotated protein sequences and alignment. Nucleic Acids Res, 2016.
+
 [4] Emmanuel Boutet, Damien Lieberherr, Michael Tognolli, Michel Schneider, and Amos Bairoch. UniProtKB/Swiss-Prot, pages 89–112. Humana Press, Totowa, NJ, 2007. ISBN 978-1-59745-535-0. doi: 10.1007/978-1-59745-535-0_4.
+
 [5] M. Steinegger and J. Söding. Mmseqs2 enables sensitive protein sequence searching for the analysis of massive datasets. Nat Biotechnol, 35:1026–1028, 2017a. doi: https://doi.org/10.1038/nbt.3988.
+
 [6] Mihaly Varadi, Stephen Anyango, Mandar Deshpande, Sreenath Nair, Cindy Natassia, Galabina Yordanova, David Yuan, Oana Stroe, Gemma Wood, Agata Laydon, Augustin Žídek, Tim Green, Kathryn Tunyasuvunakool, Stig Petersen, John Jumper, Ellen Clancy, Richard Green, Ankur Vora, Mira Lutfi, Michael Figurnov, Andrew Cowie, Nicole Hobbs, Pushmeet Kohli, Gerard Kleywegt, Ewan Birney, Demis Hassabis, and Sameer Velankar. AlphaFold Protein Structure Database: massively expanding the structural coverage of protein-sequence space with high-accuracy models. Nucleic Acids Research, 50(D1):D439–D444, 11 2021. ISSN 0305-1048. doi: 10.1093/nar/gkab1061.
+
 [7] R. Krivák and D. Hoksza. P2rank: machine learning based tool for rapid and accurate prediction of ligand binding sites from protein structure. J Cheminform, 10, 2018. doi: https://doi.org/10.1186/s13321-018-0285-8.
+
 [8] https://www.clinicalgenome.org/data-sharing/clinvar/
 
 
