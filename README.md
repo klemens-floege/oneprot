@@ -24,6 +24,8 @@ This project is dedicated to advancing the understanding and application of vari
 
 We are aiming to learn aligned embeddings for different protein modalities. These different modalities can later be used on retrieval, prediction and generation tasks for proteins. 
 
+It started as a prototype model of the Bio x ML Hackathon 2023, which won the first prize and the impact prize, and the initial version of the model is [**here**](https://github.com/svm-ai/svm-hackathon)
+
 ## Modalities 
 
 - Sequence
