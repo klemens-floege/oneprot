@@ -48,7 +48,7 @@ We used OpenProteinSet [1], which contains structures, sequences, and MSAs for p
 | Sequence | Pockets | 335086 / 1000 / 1000|
 | Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
-[1] Gustaf Ahdritz, Nazim Bouatta, Sachin Kadyan, Lukas Jarosch, Daniel Berenberg, Ian Fisk, Andrew M. Watkins, Stephen Ra, Richard Bonneau, and Mohammed AlQuraishi. Openproteinset: Training data for structural biology at scale, 2023b. URL https://arxiv.org/abs/2308.05326.
+[1] Gustaf Ahdritz, Nazim Bouatta, Sachin Kadyan, Lukas Jarosch, Daniel Berenberg, Ian Fisk, Andrew M. Watkins, Stephen Ra, Richard Bonneau, and Mohammed AlQuraishi. Openproteinset: Training data for structural biology at scale, 2023b. URL https://arxiv.org/abs/2308.05326.\\
 [2] Stephen K Burley, Charmi Bhikadiya, Chunxiao Bi, Sebastian Bittrich, Henry Chao, Li Chen, Paul A Craig, Gregg V Crichlow, Kenneth Dalenberg, Jose M Duarte, et al. Rcsb protein data bank (rcsb. org): delivery of experimentally-determined pdb structures alongside one million computed structure models of proteins from artificial intelligence/-machine learning. Nucleic acids research, 51(D1):D488–D508, 2023.
 [3] Mirdita M., von den Driesch L., Galiez C., Martin M. J., Söding J., and Steinegger M. Uniclust databases of clustered and deeply annotated protein sequences and alignment. Nucleic Acids Res, 2016.
 [4] Emmanuel Boutet, Damien Lieberherr, Michael Tognolli, Michel Schneider, and Amos Bairoch. UniProtKB/Swiss-Prot, pages 89–112. Humana Press, Totowa, NJ, 2007. ISBN 978-1-59745-535-0. doi: 10.1007/978-1-59745-535-0_4.
