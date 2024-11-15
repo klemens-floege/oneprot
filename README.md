@@ -30,6 +30,7 @@ We are aiming to learn aligned embeddings for different protein modalities. Thes
 - Structure
 - Text
 - Pockets
+- Sequence similarity
 
 <br>
 
@@ -37,8 +38,11 @@ We are aiming to learn aligned embeddings for different protein modalities. Thes
 We only require paired modalities dataset. 
 | Modality 1 | Modality 2 | Dataset Size (Train/Val/Test) |
 |----------|----------|----------|
-| Sequence | Structure | 794057 / 9002 / 8801 |
-| Sequence | MSA | 794057 / 9002 / 8801 |
+| Sequence | Structure Graph | 647781 / 1000 / 1000 |
+| Sequence | Structure Token | 1000000 / 1000 / 1000 |
+| Sequence | Text | 540077 / 1000 / 1000 |
+| Sequence | Pockets | 335086 / 1000 / 1000|
+| Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
 
 
