@@ -9,7 +9,7 @@ peft==0.5.0
 fair-esm==2.0.0
 rootutils==1.0.7
 pyrootutils==1.0.4
-tqdm==4.65.0
+tqdm==4.67.0
 rich==13.5.3
 hydra_colorlog==1.2.0
 dive-into-graphs
