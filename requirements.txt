@@ -10,7 +10,7 @@ fair-esm==2.0.0
 rootutils==1.0.7
 pyrootutils==1.0.4
 tqdm==4.65.0
-rich==13.5.3
+rich==13.9.4
 hydra_colorlog==1.2.0
 dive-into-graphs
 wandb
