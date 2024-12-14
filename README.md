@@ -70,8 +70,33 @@ DownStream Tasks:
 ## Environment
 We recommend using PyTorch version 2.1.0 with CUDA-12.1 with the corresponding version of torch-geometric, available for installation via 
 
-`pip install torch_geometric`
+```
+pip install torch_geometric
+```
 
-`pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu121.html`
+```
+pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+```
 
 The remaining package requirements are available in the `requirements.txt` file
+
+## Using singularity container
+
+A singularity container, containing most of the necessary packages is available form [**zenodo**](https://zenodo.org/records/14481845). However, on top of it one still needs to create a small environment. For that the following is required
+```
+pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+```
+As well as the packages below
+
+```
+wandb
+faiss-gpu
+transformers
+biopandas
+```
+Therefore, a workflow of activating required environment  within a batch script may look as follows:
+```
+srun --cpu-bind=none bash -c "export CUDA_VISIBLE_DEVICES=\"0,1,2,3\"; export PYTHONPATH=\"\"; export HYDRA_FULL_ERROR=1; apptainer run --nv singularity_docker_jupyter.sif bash -c \"source environment_folder/venv/bin/activate && python src/script_of_your_choice.py\""
+```
+
+
