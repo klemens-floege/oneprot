@@ -9,7 +9,7 @@ model:
   config_path: null
 
 esm_model: facebook/esm2_t33_650M_UR50D
-tokenizer_name: westlake-repl/SaProt_650M_AF2 #facebook/esm2_t33_650M_UR50D
+tokenizer_name: facebook/esm2_t33_650M_UR50D #westlake-repl/SaProt_650M_AF2 #
 saprot_model: westlake-repl/SaProt_650M_AF2
 
 # Output directory
