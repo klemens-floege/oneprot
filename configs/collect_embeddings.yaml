@@ -23,6 +23,7 @@ num_workers: 16
 num_gpus: 4
 num_nodes: 2
 single_batch_mode: false
+huggingface: false #change to true for loading the huggingface checkpoint
 
 # List of model configurations
 models:
