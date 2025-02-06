@@ -149,13 +149,20 @@ def load_custom_model(cfg: DictConfig) -> pl.LightningModule:
 
     if cfg.model.ckpt_path is not None:
         logger.info(f"Loading model checkpoint from: {cfg.model.ckpt_path}")
-        if torch.cuda.is_available():
-            model.load_state_dict(torch.load(cfg.model.ckpt_path)["state_dict"])
-            model.cuda()
+        if cfg.huggingface:
+            state_dict = torch.load(checkpoint_path)
+            model_state_dict = model.state_dict()
+            model.load_state_dict(state_dict, strict=True)
+            if torch.cuda.is_available():
+                model.cuda()
         else:
-            model.load_state_dict(
-                torch.load(cfg.model.ckpt_path, map_location="cpu")["state_dict"]
-            )
+            if torch.cuda.is_available():
+                model.load_state_dict(torch.load(cfg.model.ckpt_path)["state_dict"])
+                model.cuda()
+            else:
+                model.load_state_dict(
+                    torch.load(cfg.model.ckpt_path, map_location="cpu")["state_dict"]
+                )
 
     model = model.network["sequence"]
     model.eval()
