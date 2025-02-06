@@ -10,7 +10,7 @@ def create_model_function(pretrained, local_only=True):
         if pretrained:
             return AutoModel.from_pretrained(
                 model_name_or_path,
-                cache_dir="/p/scratch/hai_oneprot/huggingface/models/",
+                cache_dir="/path/to/your/cache/folder",
                 local_files_only=local_only,
                 **kwargs
             )
@@ -48,7 +48,7 @@ class SequenceEncoder(BaseEncoder):
         #config = AutoConfig.from_pretrained("path/to/downloaded/config.json")
         #self.transformer = AutoModel.from_pretrained("path/to/downloaded/pytorch_model.bin", config=config)
         #create_func = AutoModel.from_pretrained if pretrained else AutoModel.from_config
-        create_func = create_model_function(pretrained=pretrained, local_only=True)
+        create_func = create_model_function(pretrained=pretrained, local_only=False)
         self.transformer = create_func(
             model_name_or_path if pretrained else self.config,
             add_pooling_layer=False
