@@ -26,7 +26,7 @@ We are aiming to learn aligned embeddings for different protein modalities. Thes
 
 It started as a prototype model of the Bio x ML Hackathon 2023, which won the first prize and the impact prize, and the initial version of the model is [**here**](https://github.com/svm-ai/svm-hackathon)
 
-**The weights of the model and example datasets are available on** [**huggingface**](https://huggingface.co/collections/HelmholtzAI-FZJ/oneprot-68226bc4dc0f9e7048c166b5)
+**The weights of the models and example datasets are available on** [**huggingface**](https://huggingface.co/collections/HelmholtzAI-FZJ/oneprot-68226bc4dc0f9e7048c166b5)
 
 ## Modalities 
 
