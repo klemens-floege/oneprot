@@ -52,6 +52,7 @@ We used [**OpenProteinSet**](https://registry.opendata.aws/openfold/), which con
 | Sequence | Pockets | 335086 / 1000 / 1000|
 | Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
+Dataset splits, as well as the .h5 file for pocket modality are available on [**zenodo**](https://zenodo.org/records/15429594)
 
 
 <br>
@@ -82,7 +83,7 @@ The remaining package requirements are available in the `requirements.txt` file
 
 ## Using singularity container
 
-A singularity container, containing most of the necessary packages is available form [**zenodo**](https://zenodo.org/records/14481845). However, on top of it one still needs to create a small environment. For that the following is required
+A singularity container, containing most of the necessary packages is available from [**zenodo**](https://zenodo.org/records/14481845). However, on top of it one still needs to create a small environment. For that the following is required
 ```
 pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
 ```
