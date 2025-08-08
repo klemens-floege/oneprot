@@ -20,15 +20,15 @@ More details coming soon
 
 ## Description
 
-This project is dedicated to advancing the understanding and application of various modalities related to proteins, such as sequence, structure, represented as graphs and as foldseek tokens, pockets and sequence similarity tuples, based on mutational information and multiple sequence alignments (MSA). 
+This project is dedicated to advancing the understanding and application of various modalities related to proteins, such as sequence, structure, represented as graphs and as foldseek tokens, pockets and sequence similarity tuples, based on mutational information and multiple sequence alignments (MSA).
 
-We are aiming to learn aligned embeddings for different protein modalities. These different modalities can later be used on retrieval, prediction and generation tasks for proteins. 
+We are aiming to learn aligned embeddings for different protein modalities. These different modalities can later be used on retrieval, prediction and generation tasks for proteins.
 
 It started as a prototype model of the Bio x ML Hackathon 2023, which won the first prize and the impact prize, and the initial version of the model is [**here**](https://github.com/svm-ai/svm-hackathon)
 
 **The weights of the models and example datasets are available on** [**huggingface**](https://huggingface.co/collections/HelmholtzAI-FZJ/oneprot-68226bc4dc0f9e7048c166b5)
 
-## Modalities 
+## Modalities
 
 - Sequence
 - Structure
@@ -38,8 +38,8 @@ It started as a prototype model of the Bio x ML Hackathon 2023, which won the fi
 
 <br>
 
-## Dataset 
-We only require paired modalities dataset. 
+## Dataset
+We only require paired modalities dataset.
 ### Dataset curation
 
 We used [**OpenProteinSet**](https://registry.opendata.aws/openfold/), which contains structures, sequences, and MSAs for proteins from the [**PDB**](https://www.rcsb.org) and proteins from [**UniClust30**](https://uniclust.mmseqs.com) and [**UniProtKB/Swiss-Prot**](https://www.expasy.org/resources/uniprotkb-swiss-prot). We used [**MMseqs2**](https://github.com/soedinglab/MMseqs2), to cluster the sequences with a sequence identity cut-off of 50\%, such that each cluster represents a homologous cluster in the protein fold space. We aligned the training, validation, and test splits along these sequence clusters. For each cluster representative and member, using the sequence, we find the structure from the [**AlphaFold2DB**](https://alphafold.ebi.ac.uk), the MSA from the OpenProteinSet, and the binding pocket with [**P2Rank**](https://github.com/rdk/p2rank). As we could not find an MSA and binding pocket for each protein, fewer data points for these modalities are available. Sequence similarity dataset was constructed using [**ClinVar**]( https://www.clinicalgenome.org/data-sharing/clinvar/) variant summary data and MSA data. Each data-point in the sequence similarity dataset consists of three pairs of sequences corresponding to the same protein: original sequence and sequence with a benign mutation, two distinct pathogenic sequences, original sequence and a sequence sampled from the corresponding MSA. Such dataset enforces clustering of the proteins based on their biological relevance, e.g. moves pathogenic mutations away from benign ones.
@@ -69,7 +69,7 @@ DownStream Tasks:
 <br>
 
 ## Environment
-We recommend using PyTorch version 2.1.0 with CUDA-12.1 with the corresponding version of torch-geometric, available for installation via 
+We recommend using PyTorch version 2.1.0 with CUDA-12.1 with the corresponding version of torch-geometric, available for installation via
 
 ```
 pip install torch_geometric
@@ -91,7 +91,6 @@ As well as the packages below
 
 ```
 wandb
-faiss-gpu
 transformers
 biopandas
 ```

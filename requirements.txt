@@ -14,5 +14,4 @@ rich==13.5.3
 hydra_colorlog==1.2.0
 dive-into-graphs
 wandb
-faiss-gpu
 
