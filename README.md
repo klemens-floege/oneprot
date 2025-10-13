@@ -52,7 +52,7 @@ We used [**OpenProteinSet**](https://registry.opendata.aws/openfold/), which con
 | Sequence | Pockets | 335086 / 1000 / 1000|
 | Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
-Dataset splits, as well as the .h5 file for pocket modality are available on [**zenodo**](https://zenodo.org/records/15429594)
+Dataset splits, as well as the .h5 file for pocket modality are available on [**zenodo**](https://zenodo.org/records/15429594), data for sequence and structure modality are available [**here**](https://zenodo.org/records/10829934) 
 
 
 <br>
