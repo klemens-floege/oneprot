@@ -2,7 +2,7 @@
 
 <div align="center">
 
-More details coming soon
+Codebase for the paper "OneProt: towards multi-modal protein foundation models via latent space alignment of sequence, structure, binding sites and text encoders".
 
 # OneProt
 
@@ -52,7 +52,7 @@ We used [**OpenProteinSet**](https://registry.opendata.aws/openfold/), which con
 | Sequence | Pockets | 335086 / 1000 / 1000|
 | Sequence | Sequence similarity| 1040560 / 1000 / 1000|
 
-Dataset splits, as well as the .h5 file for pocket modality are available on [**zenodo**](https://zenodo.org/records/15429594), data for sequence and structure modality is available [**here**](https://zenodo.org/records/10829934)
+Dataset splits, as well as the .h5 file for pocket modality are available on [**zenodo**](https://zenodo.org/records/15429594), data for sequence and structure modality is also available in two parts: [**pt 1**](https://zenodo.org/records/10829934), [**pt 2**](https://zenodo.org/records/15484900).
 
 
 <br>
