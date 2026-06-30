@@ -1,4 +1,4 @@
-
+### The repository moved to a new address [https://github.com/oneprot-models/oneprot-embeddings/tree/main](https://github.com/oneprot-models/oneprot-embeddings/tree/main)
 
 <div align="center">
 
